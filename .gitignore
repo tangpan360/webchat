@@ -1,0 +1,40 @@
+# 依赖
+/node_modules
+/.pnp
+.pnp.js
+
+# 测试
+/coverage
+
+# 构建输出
+/build
+/dist
+
+# 环境变量
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# 日志
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# 编辑器配置
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# 缓存
+.cache/
+.eslintcache
+.npm
+
+# 临时文件
+*.tmp
+*.temp 

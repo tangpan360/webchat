@@ -1,0 +1,1120 @@
+/* 全局样式 */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background-color: #f9f9f9;
+}
+
+/* 标签样式 */
+.tabs {
+  display: flex;
+  background-color: #fff;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.tab {
+  padding: 12px 20px;
+  cursor: pointer;
+  color: #666;
+  font-weight: 500;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.tab:hover {
+  color: #1a73e8;
+}
+
+.tab.active {
+  color: #1a73e8;
+  border-bottom-color: #1a73e8;
+}
+
+/* 面板容器 */
+.panel-container {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+.panel {
+  display: none;
+  height: 100%;
+  overflow: auto;
+}
+
+.panel.active {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 聊天面板 */
+.chat-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.chat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e0e0e0;
+  background-color: #fff;
+}
+
+.new-chat-btn {
+  padding: 8px 16px;
+  background-color: #1a73e8;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.new-chat-btn:hover {
+  background-color: #0d66d0;
+}
+
+/* 模型选择器 */
+.model-selector {
+  position: relative;
+  min-width: 140px;
+}
+
+.selected-model {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  background-color: #f5f5f5;
+  cursor: pointer;
+}
+
+.dropdown-arrow {
+  margin-left: 8px;
+  font-size: 10px;
+}
+
+.model-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background-color: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  margin-top: 4px;
+  z-index: 10;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.model-option {
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.model-option:hover {
+  background-color: #f5f5f5;
+}
+
+.model-option.selected {
+  background-color: #e8f0fe;
+  color: #1a73e8;
+}
+
+/* 消息列表 */
+.message-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  background-color: #fff;
+}
+
+.message {
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.message-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+  height: 24px;
+}
+
+.message-role {
+  font-weight: 600;
+  color: #444;
+}
+
+.message-actions {
+  display: flex;
+  gap: 5px;
+  opacity: 0.4;
+  transition: opacity 0.2s ease;
+}
+
+.message:hover .message-actions {
+  opacity: 1;
+}
+
+.message-action-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #666;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.message-action-btn:hover {
+  background-color: #f0f0f0;
+  color: #1a73e8;
+}
+
+.message-action-btn.delete:hover {
+  background-color: #ffebee;
+  color: #d32f2f;
+}
+
+.message.user .message-role {
+  color: #1a73e8;
+}
+
+.message.assistant .message-role {
+  color: #34a853;
+}
+
+.message-content {
+  background-color: #f5f5f5;
+  padding: 12px 16px 12px 24px;
+  border-radius: 8px;
+  line-height: 1.5;
+  position: relative;
+}
+
+.message-text {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* 消息加载指示器 */
+.message-loading {
+  align-self: flex-start;
+  margin-top: 12px;
+  padding-left: 2px;
+}
+
+.message-loading .dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin: 0 2px;
+  border-radius: 50%;
+  background-color: rgba(26, 115, 232, 0.7);
+  opacity: 0.9;
+}
+
+.message.assistant .message-loading .dot {
+  background-color: rgba(52, 168, 83, 0.7);
+}
+
+.message-loading .dot:nth-child(1) {
+  animation: dot-jump 1.4s 0s infinite ease-in-out;
+}
+
+.message-loading .dot:nth-child(2) {
+  animation: dot-jump 1.4s 0.2s infinite ease-in-out;
+}
+
+.message-loading .dot:nth-child(3) {
+  animation: dot-jump 1.4s 0.4s infinite ease-in-out;
+}
+
+@keyframes dot-jump {
+  0%, 80%, 100% {
+    transform: translateY(0);
+    opacity: 0.6;
+  }
+  40% {
+    transform: translateY(-6px);
+    opacity: 1;
+  }
+}
+
+.message-content ul, 
+.message-content ol {
+  margin-left: 16px;
+  padding-left: 16px;
+}
+
+.message-content li {
+  margin-bottom: 6px;
+}
+
+.message.user .message-content {
+  background-color: #e8f0fe;
+  margin-left: 20px;
+  margin-right: 0;
+}
+
+.message.assistant .message-content {
+  margin-left: 0;
+  margin-right: 20px;
+}
+
+/* 代码块样式 */
+.code-block {
+  margin: 12px 0;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid #e0e0e0;
+}
+
+.code-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background-color: #2d2d2d;
+  color: #e6e6e6;
+}
+
+.code-language {
+  font-family: monospace;
+  font-size: 12px;
+}
+
+.copy-button {
+  background-color: transparent;
+  border: 1px solid #e6e6e6;
+  color: #e6e6e6;
+  padding: 2px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.copy-button:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* 输入区域 */
+.chat-input-container {
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+  background-color: #fff;
+  border-top: 1px solid #e0e0e0;
+}
+
+/* 添加输入框行容器 */
+.input-row {
+  display: flex;
+  align-items: flex-end;
+}
+
+.chat-input {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  resize: none;
+  min-height: 40px;
+  max-height: 200px;
+  overflow-y: auto;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  transition: border-color 0.3s;
+}
+
+.chat-input:focus {
+  border-color: #1890ff;
+  outline: none;
+}
+
+.send-btn {
+  margin-left: 8px;
+  padding: 0 16px;
+  background-color: #1a73e8;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  align-self: flex-end;
+  height: 40px;
+}
+
+.send-btn:hover {
+  background-color: #0d66d0;
+}
+
+.send-btn:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+/* 历史面板 */
+.history-panel {
+  padding: 16px;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.history-panel h2 {
+  margin-bottom: 16px;
+  color: #333;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.history-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  background-color: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.history-item:hover {
+  background-color: #f5f5f5;
+  transform: translateY(-2px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.history-item-info {
+  flex: 1;
+}
+
+.history-item-title {
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.history-item-meta {
+  font-size: 12px;
+  color: #666;
+  display: flex;
+  gap: 12px;
+}
+
+.history-item-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.rename-btn, .delete-btn {
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.rename-btn {
+  background-color: #f5f5f5;
+  color: #333;
+}
+
+.rename-btn:hover {
+  background-color: #e5e5e5;
+}
+
+.delete-btn {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+.delete-btn:hover {
+  background-color: #f5c6cb;
+}
+
+.history-panel.empty {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #666;
+}
+
+/* 设置面板 */
+.settings-panel {
+  padding: 16px;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.settings-panel h2 {
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.settings-section {
+  margin-bottom: 24px;
+  background-color: white;
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+}
+
+.settings-section h3 {
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #eee;
+  color: #555;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #555;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+/* API密钥输入框容器 */
+.api-key-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.api-key-container input {
+  flex: 1;
+  padding-right: 40px; /* 为按钮留出空间 */
+}
+
+.toggle-password-btn {
+  position: absolute;
+  right: 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #666;
+  padding: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.toggle-password-btn:hover {
+  background-color: #f0f0f0;
+  color: #1a73e8;
+}
+
+.form-group input[type="number"] {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.form-hint {
+  display: block;
+  font-size: 12px;
+  color: #666;
+  margin-top: 4px;
+  font-style: italic;
+}
+
+.models-list {
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.model-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  background-color: #f9f9f9;
+}
+
+.model-info {
+  flex: 1;
+}
+
+.model-name {
+  font-weight: 500;
+}
+
+.model-id {
+  font-size: 12px;
+  color: #666;
+  font-family: monospace;
+}
+
+.remove-model-btn {
+  background-color: #f8d7da;
+  color: #721c24;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.add-model-section {
+  background-color: #f9f9f9;
+  padding: 16px;
+  border-radius: 4px;
+  margin-top: 16px;
+}
+
+.add-model-section h4 {
+  margin-bottom: 12px;
+  color: #555;
+}
+
+.add-model-btn {
+  background-color: #d1e7dd;
+  color: #0f5132;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.settings-actions {
+  margin-top: 24px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.save-settings-btn {
+  background-color: #1a73e8;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.save-settings-btn:hover {
+  background-color: #0d66d0;
+}
+
+.save-settings-btn:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.save-message {
+  margin-top: 16px;
+  padding: 10px;
+  border-radius: 4px;
+  text-align: center;
+}
+
+.save-message.success {
+  background-color: #d1e7dd;
+  color: #0f5132;
+}
+
+.save-message.error {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+/* 消息编辑样式 */
+.message-edit-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  background-color: #fff;
+  overflow: auto;
+}
+
+.message-edit-textarea {
+  flex: 1;
+  min-height: 150px;
+  padding: 12px;
+  border: 1px solid #1a73e8;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: none;
+  margin-bottom: 12px;
+}
+
+.message-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.cancel-edit-btn, .save-edit-btn {
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 14px;
+  border: none;
+}
+
+.cancel-edit-btn {
+  background-color: #f5f5f5;
+  color: #333;
+}
+
+.cancel-edit-btn:hover {
+  background-color: #e5e5e5;
+}
+
+.save-edit-btn {
+  background-color: #1a73e8;
+  color: white;
+}
+
+.save-edit-btn:hover {
+  background-color: #0d66d0;
+}
+
+/* 停止按钮样式 */
+.stop-btn {
+  margin-left: 8px;
+  padding: 0 16px;
+  background-color: #f44336;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  align-self: flex-end;
+  height: 40px;
+}
+
+.stop-btn:hover {
+  background-color: #d32f2f;
+}
+
+/* 删除确认样式 */
+.delete-confirm-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.delete-confirm-text {
+  font-size: 12px;
+  color: #ff4d4f;
+}
+
+.confirm-btn {
+  padding: 1px 5px;
+  font-size: 12px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.confirm-btn.yes {
+  background-color: #ff4d4f;
+  color: white;
+}
+
+.confirm-btn.yes:hover {
+  background-color: #ff7875;
+}
+
+.confirm-btn.no {
+  background-color: #f0f0f0;
+  color: #666;
+}
+
+.confirm-btn.no:hover {
+  background-color: #d9d9d9;
+}
+
+/* 复制成功状态样式 */
+.message-action-btn.copied {
+  color: #52c41a;
+}
+
+/* 引用内容样式 */
+.quoted-content-container {
+  margin-bottom: 10px;
+  background-color: #f5f7fa;
+  border-radius: 8px;
+  border: 1px solid #e0e6ed;
+  overflow: hidden;
+}
+
+.quoted-content-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background-color: #eaeff5;
+  border-bottom: 1px solid #e0e6ed;
+}
+
+.quoted-content-header span {
+  font-size: 14px;
+  font-weight: 500;
+  color: #4a5568;
+}
+
+.clear-all-quotes-btn {
+  background: none;
+  border: none;
+  font-size: 13px;
+  color: #e53e3e;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.clear-all-quotes-btn:hover {
+  background-color: rgba(229, 62, 62, 0.1);
+}
+
+.quoted-content-list {
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.quoted-item {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 8px;
+  padding: 8px;
+  background-color: white;
+  border-radius: 6px;
+  border: 1px solid #e0e6ed;
+  position: relative;
+}
+
+.quoted-text {
+  flex: 1;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #4a5568;
+  margin-right: 24px;
+  max-height: 100px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.delete-quote-btn {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  background: none;
+  border: none;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #a0aec0;
+  font-size: 16px;
+  cursor: pointer;
+  border-radius: 50%;
+}
+
+.delete-quote-btn:hover {
+  background-color: #f1f5f9;
+  color: #e53e3e;
+}
+
+/* Markdown 引用样式 */
+.markdown-quote {
+  border-left: 3px solid #1a73e8;
+  padding-left: 12px;
+  margin: 8px 0;
+  color: #4a5568;
+  background-color: #f8f9fa;
+  padding: 10px 10px 10px 12px;
+  border-radius: 0 4px 4px 0;
+}
+
+/* 确保原始引用内容在消息中可见 */
+.message-text pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.message-text blockquote p {
+  margin: 0;
+}
+
+/* 确保引用内容前的 > 符号显示 */
+.message-text blockquote::before {
+  content: '';
+  display: block;
+}
+
+/* 划线工具栏面板样式 */
+.tools-panel {
+  padding: 16px;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.tools-panel h2 {
+  margin-bottom: 16px;
+  color: #333;
+}
+
+.tools-panel h3 {
+  margin: 16px 0;
+  color: #444;
+}
+
+.tools-description {
+  background-color: #f5f7fa;
+  padding: 12px 16px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+  border-left: 3px solid #1a73e8;
+}
+
+.tools-description p {
+  margin: 8px 0;
+  color: #555;
+}
+
+.tools-list {
+  margin-bottom: 24px;
+}
+
+.empty-tools-message {
+  padding: 16px;
+  background-color: #f9f9f9;
+  border-radius: 6px;
+  color: #666;
+  text-align: center;
+  border: 1px dashed #ccc;
+}
+
+.tool-item {
+  background-color: #fff;
+  border: 1px solid #e0e6ed;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+
+.tool-details {
+  padding: 16px;
+}
+
+.tool-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.tool-name {
+  font-size: 16px;
+  font-weight: 500;
+  color: #333;
+}
+
+.tool-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.edit-tool-btn, .delete-tool-btn {
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  border: none;
+  cursor: pointer;
+}
+
+.edit-tool-btn {
+  background-color: #eaeff5;
+  color: #1a73e8;
+}
+
+.edit-tool-btn:hover {
+  background-color: #d7e3f7;
+}
+
+.delete-tool-btn {
+  background-color: #fff1f0;
+  color: #d32f2f;
+}
+
+.delete-tool-btn:hover {
+  background-color: #ffcdd2;
+}
+
+.tool-prompt {
+  display: flex;
+  background-color: #f9f9f9;
+  padding: 10px;
+  border-radius: 6px;
+}
+
+.tool-prompt-label {
+  color: #666;
+  margin-right: 8px;
+  white-space: nowrap;
+}
+
+.tool-prompt-text {
+  color: #333;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.tool-editing {
+  padding: 16px;
+}
+
+.tool-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.add-tool-form {
+  background-color: #fff;
+  border: 1px solid #e0e6ed;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.form-actions {
+  margin-top: 16px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.add-tool-btn {
+  padding: 8px 16px;
+  background-color: #1a73e8;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.add-tool-btn:hover {
+  background-color: #0d66d0;
+}
+
+/* 多功能按钮工具栏样式 */
+.webchat-tools-container {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  background-color: #fff;
+  border-radius: 4px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  z-index: 10000;
+  padding: 4px;
+  gap: 4px;
+}
+
+.webchat-tool-button {
+  padding: 4px 8px;
+  background: #1a73e8;
+  color: white;
+  border: none;
+  border-radius: 3px;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.webchat-tool-button:hover {
+  background: #0d66d0;
+}
+
+.tool-editing textarea,
+.add-tool-form textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  font-size: 14px;
+  min-height: 80px;
+  resize: vertical;
+  font-family: inherit;
+  line-height: 1.5;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #555;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.form-hint {
+  display: block;
+  font-size: 12px;
+  color: #666;
+  margin-top: 4px;
+  font-style: italic;
+} 

@@ -1,0 +1,40 @@
+{
+  "manifest_version": 3,
+  "name": "WebChat",
+  "version": "1.0.0",
+  "description": "浏览器侧边栏AI问答插件",
+  "action": {
+    "default_title": "WebChat",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": [
+    "storage",
+    "sidePanel",
+    "scripting"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "side_panel": {
+    "default_path": "index.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["contentScript.js", "floatButton.js"],
+      "css": ["styles.css", "floatButton.css"]
+    }
+  ]
+} 

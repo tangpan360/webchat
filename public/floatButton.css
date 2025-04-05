@@ -1,0 +1,44 @@
+/* 悬浮按钮样式 */
+.webchat-float-button {
+  position: fixed;
+  right: 0px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background-color: #1a73e8;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  z-index: 10000;
+  transition: all 0.3s ease;
+  border: none;
+  outline: none;
+}
+
+.webchat-float-button:hover {
+  background-color: #0d66d0;
+  transform: translateY(-50%) scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.webchat-float-button:active {
+  transform: translateY(-50%) scale(0.95);
+}
+
+/* 悬浮按钮图标 */
+.webchat-float-button svg {
+  width: 24px;
+  height: 24px;
+  stroke: currentColor;
+}
+
+/* 拖动时的样式 */
+.webchat-float-button.dragging {
+  opacity: 0.8;
+  background-color: #0d66d0;
+} 
