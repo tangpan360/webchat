@@ -69,8 +69,16 @@ const processMessages = (messages, settings) => {
 export const sendMessage = async (content, modelId, previousMessages, onChunkReceived, signal) => {
   // 获取设置
   const settings = await getStorage('settings');
-  if (!settings || !settings.apiKey) {
-    throw new Error('缺少API密钥，请在设置中配置API密钥');
+  const defaultApiKey = 'sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
+  
+  // 增强验证：检查密钥是否为空或默认值
+  if (!settings || !settings.apiKey || settings.apiKey === defaultApiKey || settings.apiKey.trim() === '') {
+    throw new Error('缺少API密钥，请在设置中配置有效的API密钥');
+  }
+  
+  // 检查API URL是否有效
+  if (!settings.apiUrl || settings.apiUrl.trim() === '') {
+    throw new Error('缺少API URL，请在设置中配置有效的API URL');
   }
 
   // 处理消息历史，控制数量和长度

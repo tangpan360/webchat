@@ -17,6 +17,8 @@ const ChatPanel = () => {
   const [editingMessageContent, setEditingMessageContent] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [quotes, setQuotes] = useState([]); // 存储引用内容
+  const [currentChatTitle, setCurrentChatTitle] = useState('');
+  const [apiError, setApiError] = useState('');
   const abortControllerRef = useRef(null);
   const lastChatIdRef = useRef(null); // 用于跟踪上一次的聊天ID
 
@@ -177,6 +179,7 @@ const ChatPanel = () => {
         setChatId(chatId);
         setSelectedModel(chats[chatId].model || 'gpt-3.5-turbo');
         setMessages(chats[chatId].messages || []);
+        setCurrentChatTitle(chats[chatId].title || '新对话');
         setStreamingMessage(null); // 确保清除任何流式消息
       } else {
         console.error('未找到对话数据:', chatId);
@@ -194,39 +197,46 @@ const ChatPanel = () => {
           setChatId(savedChatId);
           setSelectedModel(chats[savedChatId].model || 'gpt-3.5-turbo');
           setMessages(chats[savedChatId].messages || []);
+          setCurrentChatTitle(chats[savedChatId].title || '新对话');
           return; // 已加载保存的对话，无需创建新对话
         }
       }
       
       // 创建新对话
-      const chatId = `chat_${Date.now()}`;
-      console.log('创建新对话:', chatId);
+      const newChatId = `chat_${Date.now()}`;
+      setChatId(newChatId);
+      
+      // 初始化新对话
       const newChat = {
-        id: chatId,
+        id: newChatId,
         title: '新对话',
         model: selectedModel,
         createdAt: new Date().toISOString(),
         messages: []
       };
       
-      // 保存到存储
+      // 保存新对话
       const chats = await getStorage('chats') || {};
-      chats[chatId] = newChat;
+      chats[newChatId] = newChat;
       await saveChat(chats);
-      
-      setChatId(chatId);
     };
     
-    // 只有当currentChatId为空时才创建新对话或尝试恢复
-    if (!currentChatId) {
-      createNewChat();
-    }
-    
-    // 添加事件监听器
+    // 注册事件监听器
     window.addEventListener('loadChat', handleLoadChat);
+    
+    // 监听来自历史面板的新建对话事件
+    const handleNewChatEvent = () => {
+      handleNewChat();
+    };
+    
+    window.addEventListener('newChat', handleNewChatEvent);
+    
+    // 初始化对话
+    createNewChat();
     
     return () => {
       window.removeEventListener('loadChat', handleLoadChat);
+      window.removeEventListener('newChat', handleNewChatEvent);
     };
   }, []);
 
@@ -248,6 +258,26 @@ const ChatPanel = () => {
   // 处理发送消息逻辑
   const handleSend = async (overrideInput = null) => {
     try {
+      // 检查API设置
+      const settings = await getStorage('settings');
+      const defaultApiUrl = 'https://api.openai.com/v1/chat/completions';
+      const defaultApiKey = 'sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
+      
+      // 检查API Key是否未设置或者是默认值
+      if (!settings || !settings.apiKey || settings.apiKey === defaultApiKey || settings.apiKey.trim() === '') {
+        setApiError('未设置API密钥，请在设置中配置API密钥');
+        return;
+      }
+      
+      // 检查API URL是否未设置或者为空
+      if (!settings.apiUrl || settings.apiUrl.trim() === '') {
+        setApiError('未设置API URL，请在设置中配置API URL');
+        return;
+      }
+      
+      // 清除之前的错误
+      setApiError('');
+      
       const messageContent = overrideInput !== null ? overrideInput : input;
       
       if ((!messageContent.trim() && quotes.length === 0) || isLoading || isGenerating) {
@@ -381,7 +411,9 @@ const ChatPanel = () => {
           if (chats[currentChatId]) {
             // 如果是第一次发送消息，自动更新对话标题
             if (chats[currentChatId].messages.length === 0 && chats[currentChatId].title === '新对话') {
-              chats[currentChatId].title = generateChatTitle(messageContent);
+              const newTitle = generateChatTitle(messageContent);
+              chats[currentChatId].title = newTitle;
+              setCurrentChatTitle(newTitle);
             }
             
             chats[currentChatId].messages = updatedMessages;
@@ -463,6 +495,7 @@ const ChatPanel = () => {
   const handleNewChat = async () => {
     setMessages([]);
     setStreamingMessage(null);
+    setApiError('');
     const chatId = `chat_${Date.now()}`;
     const newChat = {
       id: chatId,
@@ -478,6 +511,7 @@ const ChatPanel = () => {
     await saveChat(chats);
     
     setChatId(chatId);
+    setCurrentChatTitle('新对话');
   };
 
   // 消息操作处理函数
@@ -755,6 +789,9 @@ const ChatPanel = () => {
         <button className="new-chat-btn" onClick={handleNewChat}>
           新建对话
         </button>
+        {currentChatTitle && (
+          <div className="current-chat-title">{currentChatTitle}</div>
+        )}
         <ModelSelector 
           selectedModel={selectedModel} 
           setSelectedModel={setSelectedModel} 
@@ -796,6 +833,13 @@ const ChatPanel = () => {
       )}
       
       <div className="chat-input-container">
+        {/* API错误提示 */}
+        {apiError && (
+          <div className="api-error-message">
+            {apiError} <a href="#" onClick={() => window.dispatchEvent(new CustomEvent('switchTab', { detail: { tab: 'settings' } }))}>前往设置</a>
+          </div>
+        )}
+        
         {/* 引用内容区域 */}
         {quotes.length > 0 && (
           <div className="quoted-content-container">

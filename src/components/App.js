@@ -14,10 +14,19 @@ const App = () => {
       setActiveTab('chat');
     };
     
+    // 监听标签切换事件
+    const handleSwitchTab = (event) => {
+      if (event.detail && event.detail.tab) {
+        setActiveTab(event.detail.tab);
+      }
+    };
+    
     window.addEventListener('loadChat', handleLoadChat);
+    window.addEventListener('switchTab', handleSwitchTab);
     
     return () => {
       window.removeEventListener('loadChat', handleLoadChat);
+      window.removeEventListener('switchTab', handleSwitchTab);
     };
   }, []);
 

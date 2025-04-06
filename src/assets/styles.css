@@ -79,6 +79,17 @@
   background-color: #0d66d0;
 }
 
+.current-chat-title {
+  flex: 1;
+  margin: 0 16px;
+  font-weight: 500;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+}
+
 /* 模型选择器 */
 .model-selector {
   position: relative;
@@ -372,9 +383,64 @@
 
 /* 历史面板 */
 .history-panel {
-  padding: 16px;
+  padding: 0;
   height: 100%;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background-color: #fff;
+  padding: 16px;
+  border-bottom: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.panel-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.save-message-header {
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 14px;
+  animation: fadeInOut 3s ease;
+}
+
+.save-message-header.success {
+  background-color: #d1e7dd;
+  color: #0f5132;
+}
+
+.save-message-header.error {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+@keyframes fadeInOut {
+  0% { opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.panel-header h2 {
+  margin-bottom: 0;
+  color: #333;
+}
+
+.panel-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
 }
 
 .history-panel h2 {
@@ -455,20 +521,35 @@
 
 .history-panel.empty {
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
   color: #666;
+  gap: 16px;
+  height: 100%;
+}
+
+.history-panel.empty .new-chat-btn {
+  margin-top: 10px;
 }
 
 /* 设置面板 */
 .settings-panel {
-  padding: 16px;
+  padding: 0;
   height: 100%;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
 }
 
 .settings-panel h2 {
-  margin-bottom: 20px;
+  margin-bottom: 0;
   color: #333;
 }
 
@@ -504,6 +585,35 @@
   border: 1px solid #e0e0e0;
   border-radius: 4px;
   font-size: 14px;
+}
+
+/* 占位符输入框样式 */
+.placeholder-input {
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.placeholder-input.showing-placeholder {
+  color: transparent;
+  cursor: text;
+}
+
+.placeholder-input.showing-placeholder::placeholder {
+  color: #999;
+  opacity: 1;
+  font-style: italic;
+  user-select: none;
+  font-weight: 400;
+}
+
+.placeholder-input:focus::placeholder {
+  color: #bbbbbb;
+}
+
+/* 设置密码输入框占位符样式，避免显示密码点 */
+input[type="password"].placeholder-input.showing-placeholder::placeholder {
+  font-family: Arial, sans-serif;
+  letter-spacing: 0;
 }
 
 /* API密钥输入框容器 */
@@ -631,6 +741,7 @@
   border-radius: 4px;
   cursor: pointer;
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .save-settings-btn:hover {
@@ -894,13 +1005,21 @@
 
 /* 划线工具栏面板样式 */
 .tools-panel {
-  padding: 16px;
+  padding: 0;
   height: 100%;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.tools-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
 }
 
 .tools-panel h2 {
-  margin-bottom: 16px;
+  margin-bottom: 0;
   color: #333;
 }
 
@@ -1117,4 +1236,28 @@
   color: #666;
   margin-top: 4px;
   font-style: italic;
+}
+
+/* API错误消息 */
+.api-error-message {
+  margin-bottom: 10px;
+  padding: 10px;
+  background-color: #fff3cd;
+  border: 1px solid #ffecb5;
+  border-radius: 4px;
+  color: #856404;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.api-error-message a {
+  color: #1a73e8;
+  text-decoration: none;
+  font-weight: 500;
+  margin-left: 8px;
+}
+
+.api-error-message a:hover {
+  text-decoration: underline;
 } 

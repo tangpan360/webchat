@@ -73,6 +73,16 @@ const HistoryPanel = () => {
     return date.toLocaleString();
   };
 
+  // 处理新建对话
+  const handleNewChat = () => {
+    // 触发新建对话事件，在ChatPanel中会处理
+    const event = new CustomEvent('newChat');
+    window.dispatchEvent(event);
+    
+    // 切换到聊天面板
+    window.dispatchEvent(new CustomEvent('switchTab', { detail: { tab: 'chat' } }));
+  };
+
   if (loading) {
     return <div className="history-panel">加载中...</div>;
   }
@@ -85,50 +95,58 @@ const HistoryPanel = () => {
     return (
       <div className="history-panel empty">
         <p>没有历史对话记录</p>
+        <button className="new-chat-btn" onClick={handleNewChat}>新建对话</button>
       </div>
     );
   }
 
   return (
     <div className="history-panel">
-      <h2>历史对话</h2>
-      <div className="history-list">
-        {chatIds.map(chatId => (
-          <div 
-            key={chatId} 
-            className="history-item"
-            onClick={() => handleLoadChat(chatId)}
-          >
-            <div className="history-item-info">
-              <div className="history-item-title">{chats[chatId].title}</div>
-              <div className="history-item-meta">
-                <span>{chats[chatId].model}</span>
-                <span>{formatDate(chats[chatId].createdAt)}</span>
-                <span>{chats[chatId].messages?.length || 0} 条消息</span>
+      <div className="panel-header">
+        <h2>历史对话</h2>
+        <button className="new-chat-btn" onClick={handleNewChat}>
+          新建对话
+        </button>
+      </div>
+      <div className="panel-content">
+        <div className="history-list">
+          {chatIds.map(chatId => (
+            <div 
+              key={chatId} 
+              className="history-item"
+              onClick={() => handleLoadChat(chatId)}
+            >
+              <div className="history-item-info">
+                <div className="history-item-title">{chats[chatId].title}</div>
+                <div className="history-item-meta">
+                  <span>{chats[chatId].model}</span>
+                  <span>{formatDate(chats[chatId].createdAt)}</span>
+                  <span>{chats[chatId].messages?.length || 0} 条消息</span>
+                </div>
+              </div>
+              <div className="history-item-actions" onClick={(e) => e.stopPropagation()}>
+                <button 
+                  className="rename-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleRename(chatId);
+                  }}
+                >
+                  重命名
+                </button>
+                <button 
+                  className="delete-btn" 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDelete(chatId);
+                  }}
+                >
+                  删除
+                </button>
               </div>
             </div>
-            <div className="history-item-actions" onClick={(e) => e.stopPropagation()}>
-              <button 
-                className="rename-btn"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleRename(chatId);
-                }}
-              >
-                重命名
-              </button>
-              <button 
-                className="delete-btn" 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDelete(chatId);
-                }}
-              >
-                删除
-              </button>
-            </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   );
