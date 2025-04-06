@@ -133,7 +133,7 @@ function handleCustomToolClick(tool) {
         action: "openSidePanel"
       });
       
-      // 自动发送带有提示词的消息 - 使用更长的延迟
+      // 自动发送带有提示词的消息 - 使用延迟
       setTimeout(() => {
         console.log('准备发送工具操作:', tool.name);
         chrome.runtime.sendMessage({
@@ -145,26 +145,6 @@ function handleCustomToolClick(tool) {
         });
       }, 1500); // 延迟1.5秒，给侧边栏足够时间加载和初始化
     }
-    
-    // 同时通过window消息尝试发送
-    window.postMessage({
-      type: 'addQuote',
-      quote: {
-        id: quoteId,
-        text: selectedText
-      }
-    }, '*');
-    
-    // 延迟后发送执行操作的消息
-    setTimeout(() => {
-      window.postMessage({
-        type: 'executeToolAction',
-        data: {
-          text: selectedText,
-          prompt: tool.prompt
-        }
-      }, '*');
-    }, 1500);
     
     // 清除选区并隐藏工具栏
     selection.removeAllRanges();
