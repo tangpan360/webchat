@@ -2,6 +2,8 @@
 
 WebChat 是一个功能强大的 Chrome 扩展，可以帮助您在浏览网页时快速引用内容并与 AI 进行交互。
 
+**项目地址：** [https://github.com/tangpan360/webchat](https://github.com/tangpan360/webchat)
+
 ## 使用方法
 
 ### 划线引用
