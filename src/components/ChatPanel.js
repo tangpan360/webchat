@@ -23,6 +23,9 @@ const ChatPanel = () => {
   const lastChatIdRef = useRef(null); // 用于跟踪上一次的聊天ID
   // 添加新的引用，用于实时获取当前选中的模型
   const currentModelRef = useRef(selectedModel);
+  // 添加工具操作防抖控制
+  const lastToolActionRef = useRef({ timestamp: 0, data: null });
+  const TOOL_ACTION_DEBOUNCE_TIME = 1000; // 防抖时间，单位毫秒
 
   // 跟踪selectedModel的变化，更新引用值
   useEffect(() => {
@@ -113,6 +116,23 @@ const ChatPanel = () => {
             console.log('正在处理其他请求，忽略当前工具操作');
             return;
           }
+          
+          // 防抖检查：如果是相同内容的操作且时间间隔小于设定值，则忽略
+          const currentTime = Date.now();
+          const lastToolAction = lastToolActionRef.current;
+          if (lastToolAction.data && 
+              lastToolAction.data.text === message.data.text && 
+              lastToolAction.data.prompt === message.data.prompt && 
+              currentTime - lastToolAction.timestamp < TOOL_ACTION_DEBOUNCE_TIME) {
+            console.log('忽略重复的工具操作请求（防抖）');
+            return;
+          }
+          
+          // 更新上次操作的时间戳和数据
+          lastToolActionRef.current = {
+            timestamp: currentTime,
+            data: {...message.data}
+          };
           
           // 立即确认收到消息
           if (typeof chrome !== 'undefined' && chrome.runtime) {

@@ -20,6 +20,9 @@ let customTools = [];
 let pendingActions = []; // 存储等待执行的操作
 let sidePanelReady = false; // 侧边栏是否已准备好
 let sidePanelOpening = false; // 侧边栏是否正在打开中
+let lastActionTimestamp = 0; // 上次执行工具操作的时间戳
+let lastActionData = null; // 上次执行的工具操作数据
+const ACTION_DEBOUNCE_TIME = 1000; // 防抖时间，单位毫秒
 
 // 初始化存储
 chrome.storage.local.get(['customTools'], (result) => {
@@ -160,6 +163,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         console.error('executeToolAction 数据不完整:', message.data);
         return;
       }
+      
+      // 防抖检查：如果是相同内容的操作且时间间隔小于设定值，则忽略
+      const currentTime = Date.now();
+      if (lastActionData && 
+          lastActionData.text === message.data.text && 
+          lastActionData.prompt === message.data.prompt && 
+          currentTime - lastActionTimestamp < ACTION_DEBOUNCE_TIME) {
+        console.log('忽略重复的工具操作请求（防抖）');
+        return;
+      }
+      
+      // 更新上次操作的时间戳和数据
+      lastActionTimestamp = currentTime;
+      lastActionData = {...message.data};
       
       console.log('background收到工具操作请求:', message.data.prompt);
       

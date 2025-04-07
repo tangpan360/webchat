@@ -119,26 +119,22 @@ function handleCustomToolClick(tool) {
     if (typeof chrome !== 'undefined' && chrome.runtime) {
       console.log('处理工具点击:', tool.name);
       
-      // 添加引用和打开侧边栏操作
-      const addQuotePromise = new Promise(resolve => {
-        chrome.runtime.sendMessage({
-          type: 'addQuote',
-          quote: {
-            id: quoteId,
-            text: selectedText
-          }
-        }, () => resolve());
+      // 首先添加引用
+      chrome.runtime.sendMessage({
+        type: 'addQuote',
+        quote: {
+          id: quoteId,
+          text: selectedText
+        }
       });
       
-      // 立即打开侧边栏
-      const openSidePanelPromise = new Promise(resolve => {
-        chrome.runtime.sendMessage({
-          action: "openSidePanel"
-        }, () => resolve());
+      // 然后打开侧边栏
+      chrome.runtime.sendMessage({
+        action: "openSidePanel"
       });
       
-      // 不等待延迟，立即发送工具操作，由background.js来决定何时执行
-      console.log('立即发送工具操作请求:', tool.name);
+      // 最后发送工具操作
+      console.log('发送工具操作请求:', tool.name);
       chrome.runtime.sendMessage({
         type: 'executeToolAction',
         data: {
