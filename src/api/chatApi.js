@@ -152,7 +152,8 @@ export const sendMessage = async (content, modelId, previousMessages, onChunkRec
 
     return {
       role: 'assistant',
-      content
+      content,
+      model: modelId
     };
   } catch (error) {
     console.error('API请求失败:', error);

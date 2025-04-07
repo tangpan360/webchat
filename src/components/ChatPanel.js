@@ -531,7 +531,7 @@ const ChatPanel = () => {
             setStreamingMessage({
               role: 'assistant',
               content: '',
-              model: currentModel  // 使用当前引用的模型值
+              model: currentModel // 使用当前引用的模型值
             });
             
             try {
@@ -720,7 +720,8 @@ const ChatPanel = () => {
           if (streamingMessage && streamingMessage.content) {
             const assistantMessage = {
               role: 'assistant',
-              content: streamingMessage.content
+              content: streamingMessage.content + '\n\n**[用户已中止生成]**',
+              model: selectedModel // 添加模型信息
             };
             
             const updatedMessages = [...messages, userMessage, assistantMessage];
@@ -766,6 +767,32 @@ const ChatPanel = () => {
   // 停止生成回复
   const handleStopGeneration = () => {
     if (abortControllerRef.current) {
+      // 保存当前已生成的内容，确保不会丢失
+      if (streamingMessage && streamingMessage.content) {
+        const partialMessage = {
+          role: 'assistant',
+          content: streamingMessage.content + '\n\n**[用户已中止生成]**',
+          model: currentModelRef.current // 确保保存模型信息
+        };
+        
+        // 更新消息列表
+        setMessages(prev => {
+          const newMessages = [...prev, partialMessage];
+          // 异步更新存储
+          (async () => {
+            if (currentChatId) {
+              const chats = await getStorage('chats') || {};
+              if (chats[currentChatId]) {
+                chats[currentChatId].messages = newMessages;
+                await saveChat(chats);
+              }
+            }
+          })();
+          return newMessages;
+        });
+      }
+      
+      // 中止请求
       abortControllerRef.current.abort();
     }
   };
@@ -893,7 +920,8 @@ const ChatPanel = () => {
         setIsGenerating(true);
         setStreamingMessage({
           role: 'assistant',
-          content: ''
+          content: '',
+          model: selectedModel // 添加模型信息
         });
         
         // 创建AbortController用于中断请求
@@ -928,7 +956,8 @@ const ChatPanel = () => {
           if (streamingMessage && streamingMessage.content) {
             const partialMessage = {
               role: 'assistant',
-              content: streamingMessage.content
+              content: streamingMessage.content + '\n\n**[用户已中止生成]**',
+              model: selectedModel // 添加模型信息
             };
             setMessages([...updatedMessages, partialMessage]);
             
@@ -981,7 +1010,8 @@ const ChatPanel = () => {
         setIsGenerating(true);
         setStreamingMessage({
           role: 'assistant',
-          content: ''
+          content: '',
+          model: selectedModel // 添加模型信息
         });
         
         // 创建AbortController用于中断请求
@@ -1016,7 +1046,8 @@ const ChatPanel = () => {
           if (streamingMessage && streamingMessage.content) {
             const partialMessage = {
               role: 'assistant',
-              content: streamingMessage.content
+              content: streamingMessage.content + '\n\n**[用户已中止生成]**',
+              model: selectedModel // 添加模型信息
             };
             setMessages([...updatedMessages, partialMessage]);
             
