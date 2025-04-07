@@ -21,11 +21,14 @@ const ChatPanel = () => {
   const [apiError, setApiError] = useState('');
   const abortControllerRef = useRef(null);
   const lastChatIdRef = useRef(null); // 用于跟踪上一次的聊天ID
+  const messageListRef = useRef(null); // 添加对MessageList组件的引用
+  const lastEditedIndexRef = useRef(null); // 存储最后编辑的消息索引
   // 添加新的引用，用于实时获取当前选中的模型
   const currentModelRef = useRef(selectedModel);
   // 添加工具操作防抖控制
   const lastToolActionRef = useRef({ timestamp: 0, data: null });
   const TOOL_ACTION_DEBOUNCE_TIME = 1000; // 防抖时间，单位毫秒
+  const restoreScrollPositionRef = useRef(null); // 添加新的引用，用于记录滚动位置
 
   // 跟踪selectedModel的变化，更新引用值
   useEffect(() => {
@@ -613,6 +616,11 @@ const ChatPanel = () => {
               setStreamingMessage(null);
               abortControllerRef.current = null;
               
+              // 强制滚动到底部，不受用户滚动状态影响
+              if (messageListRef.current) {
+                messageListRef.current.resetUserScrollState();
+              }
+              
               return; // 结束执行，跳过下面的普通处理流程
             } catch (error) {
               // 处理错误...
@@ -648,6 +656,11 @@ const ChatPanel = () => {
       // 将新消息添加到当前消息列表
       const updatedMessages = [...messages, userMessage];
       setMessages(updatedMessages);
+      
+      // 强制滚动到底部，不受用户滚动状态影响
+      if (messageListRef.current) {
+        messageListRef.current.resetUserScrollState();
+      }
       
       // 如果是第一条消息，自动更新对话标题
       if (messages.length === 0 && (!currentChatTitle || currentChatTitle === '新对话')) {
@@ -847,38 +860,82 @@ const ChatPanel = () => {
   };
 
   const handleEditMessage = (index, message) => {
+    // 记录当前编辑的消息索引，用于编辑完成后恢复位置
+    lastEditedIndexRef.current = index;
+    // 记录当前滚动位置以便在退出编辑模式时恢复
+    if (messageListRef.current) {
+      restoreScrollPositionRef.current = messageListRef.current.preserveScrollPosition();
+    }
     setEditingMessageIndex(index);
     setEditingMessageContent(message.content);
   };
 
-  const handleSaveEdit = async () => {
-    if (editingMessageIndex === null || !editingMessageContent.trim()) return;
+  const handleSaveEdit = () => {
+    // 记录当前编辑的消息索引
+    const targetScrollIndex = editingMessageIndex;
     
-    // 更新消息
-    const updatedMessages = [...messages];
-    updatedMessages[editingMessageIndex] = {
-      ...updatedMessages[editingMessageIndex],
-      content: editingMessageContent
-    };
-    
-    // 直接更新消息，不调用大模型回复
-    setMessages(updatedMessages);
-    setEditingMessageIndex(null);
-    setEditingMessageContent('');
-    
-    // 更新存储
-    if (currentChatId) {
-      const chats = await getStorage('chats') || {};
-      if (chats[currentChatId]) {
-        chats[currentChatId].messages = updatedMessages;
-        await saveChat(chats);
+    if (editingMessageIndex !== null) {
+      // 使用 MessageList 的 preserveScrollPosition 来保存当前滚动位置
+      const restoreScroll = messageListRef.current?.preserveScrollPosition();
+      
+      // 检查消息内容是否真的有变化
+      const originalMessage = allMessages[editingMessageIndex];
+      if (originalMessage.content !== editingMessageContent) {
+        // 构建更新后的消息数组
+        const updatedMessages = [...allMessages];
+        updatedMessages[editingMessageIndex] = {
+          ...updatedMessages[editingMessageIndex],
+          content: editingMessageContent
+        };
+        
+        // 更新本地消息并存储到 localStorage
+        setAllMessages(updatedMessages);
+        saveMessagesToStorage(chatId, updatedMessages);
       }
+      
+      // 重置编辑状态
+      setEditingMessageIndex(null);
+      setEditingMessageContent('');
+      
+      // 等到下一帧再尝试恢复滚动位置
+      requestAnimationFrame(() => {
+        // 先尝试使用通用的恢复方法
+        if (restoreScroll) restoreScroll();
+        
+        // 再尝试使用具体消息索引滚动 (作为备份)
+        setTimeout(() => {
+          // 如果第一种方法不成功，尝试第二种方法
+          if (messageListRef.current && targetScrollIndex !== null) {
+            messageListRef.current.scrollToMessage(targetScrollIndex);
+          }
+        }, 50);
+      });
     }
   };
-
+  
   const handleCancelEdit = () => {
+    // 记录当前编辑的消息索引
+    const targetScrollIndex = editingMessageIndex;
+    
+    // 使用 MessageList 的 preserveScrollPosition 来保存当前滚动位置
+    const restoreScroll = messageListRef.current?.preserveScrollPosition();
+    
+    // 重置编辑状态
     setEditingMessageIndex(null);
     setEditingMessageContent('');
+    
+    // 使用多层保险机制恢复滚动位置
+    requestAnimationFrame(() => {
+      // 先尝试使用通用的恢复方法
+      if (restoreScroll) restoreScroll();
+      
+      // 再尝试使用具体消息索引滚动 (作为备份)
+      setTimeout(() => {
+        if (messageListRef.current && targetScrollIndex !== null) {
+          messageListRef.current.scrollToMessage(targetScrollIndex);
+        }
+      }, 50);
+    });
   };
 
   const handleDeleteMessage = async (index) => {
@@ -910,6 +967,11 @@ const ChatPanel = () => {
 
   const handleRegenerateMessage = async (index) => {
     let messageToRegenerate;
+    
+    // 强制滚动到底部，重置用户滚动状态
+    if (messageListRef.current) {
+      messageListRef.current.resetUserScrollState();
+    }
     
     if (messages[index].role === 'assistant') {
       // 找到这条AI消息之前的用户消息
@@ -1133,39 +1195,47 @@ const ChatPanel = () => {
         />
       </div>
       
-      {editingMessageIndex !== null ? (
-        <div className="message-edit-container">
-          <textarea
-            className="message-edit-textarea"
-            value={editingMessageContent}
-            onChange={(e) => setEditingMessageContent(e.target.value)}
-            autoFocus
-          />
-          <div className="message-edit-actions">
-            <button 
-              className="cancel-edit-btn"
-              onClick={handleCancelEdit}
-            >
-              取消
-            </button>
-            <button 
-              className="save-edit-btn"
-              onClick={handleSaveEdit}
-            >
-              保存
-            </button>
+      {/* 使用固定高度的容器并设置overflow属性，防止DOM变化导致滚动重置 */}
+      <div className="message-container" style={{ 
+        height: 'calc(100% - 160px)', 
+        position: 'relative',
+        overflow: 'hidden'
+      }}>
+        {editingMessageIndex !== null ? (
+          <div className="message-edit-container">
+            <textarea
+              className="message-edit-textarea"
+              value={editingMessageContent}
+              onChange={(e) => setEditingMessageContent(e.target.value)}
+              autoFocus
+            />
+            <div className="message-edit-actions">
+              <button 
+                className="cancel-edit-btn"
+                onClick={handleCancelEdit}
+              >
+                取消
+              </button>
+              <button 
+                className="save-edit-btn"
+                onClick={handleSaveEdit}
+              >
+                保存
+              </button>
+            </div>
           </div>
-        </div>
-      ) : (
-        <MessageList 
-          messages={allMessages} 
-          onCopyMessage={handleCopyMessage}
-          onEditMessage={handleEditMessage}
-          onDeleteMessage={handleDeleteMessage}
-          onRegenerateMessage={handleRegenerateMessage}
-          isGenerating={isGenerating}
-        />
-      )}
+        ) : (
+          <MessageList 
+            messages={allMessages} 
+            onCopyMessage={handleCopyMessage}
+            onEditMessage={handleEditMessage}
+            onDeleteMessage={handleDeleteMessage}
+            onRegenerateMessage={handleRegenerateMessage}
+            isGenerating={isGenerating}
+            ref={messageListRef}
+          />
+        )}
+      </div>
       
       <div className="chat-input-container">
         {/* API错误提示 */}

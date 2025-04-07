@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useImperativeHandle, forwardRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
@@ -6,21 +6,226 @@ import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
 
-const MessageList = ({ 
+const MessageList = forwardRef(({ 
   messages, 
   onEditMessage,
   onDeleteMessage,
   onRegenerateMessage,
   onCopyMessage,
   isGenerating
-}) => {
+}, ref) => {
   const messagesEndRef = useRef(null);
+  const messageListRef = useRef(null);
+  const messageRefs = useRef({});
   const [deleteConfirmIndex, setDeleteConfirmIndex] = useState(null);
   const [copiedIndex, setCopiedIndex] = useState(null);
+  const prevMessagesLengthRef = useRef(messages.length);
+  const lastContentRef = useRef('');
+  const isUserNearBottomRef = useRef(true);
+  const userHasScrolledUpRef = useRef(false);
+  const lastScrollTopRef = useRef(0);
   
-  useEffect(() => {
+  // 暴露滚动方法给父组件
+  useImperativeHandle(ref, () => ({
+    scrollToBottom: () => {
+      scrollToBottom();
+    },
+    // 用于重置用户滚动状态
+    resetUserScrollState: () => {
+      userHasScrolledUpRef.current = false;
+      scrollToBottom();
+    },
+    // 滚动到特定消息索引的位置 - 使用即时滚动，无动画
+    scrollToMessage: (index) => {
+      if (messageRefs.current[index]) {
+        messageRefs.current[index].scrollIntoView({
+          behavior: 'auto', // 改为即时滚动，没有动画
+          block: 'center'
+        });
+      }
+    },
+    // 精确保持滚动位置不变
+    preserveScrollPosition: () => {
+      if (!messageListRef.current) return () => {};
+      
+      // 保存当前的滚动位置
+      const currentScrollTop = messageListRef.current.scrollTop || 0;
+      
+      // 备用方法：记录当前在视口中的消息元素
+      let visibleMessageIndex = -1;
+      const container = messageListRef.current;
+      const containerRect = container.getBoundingClientRect();
+      const midpoint = containerRect.top + containerRect.height / 2;
+      
+      // 找到视口中间位置的消息索引
+      Object.entries(messageRefs.current).forEach(([index, element]) => {
+        if (!element) return;
+        const rect = element.getBoundingClientRect();
+        // 如果元素在视口中，并且中点在可视区域最中间
+        if (rect.top <= midpoint && rect.bottom >= midpoint) {
+          visibleMessageIndex = parseInt(index, 10);
+        }
+      });
+      
+      // 记录可见元素的顶部偏移量，用于精确恢复位置
+      let topElementOffset = 0;
+      if (visibleMessageIndex !== -1 && messageRefs.current[visibleMessageIndex]) {
+        const element = messageRefs.current[visibleMessageIndex];
+        topElementOffset = element.getBoundingClientRect().top - containerRect.top;
+      }
+      
+      // 返回一个函数，用于在DOM更新后恢复滚动位置
+      return () => {
+        if (!messageListRef.current) return;
+        
+        // 使用多次尝试的方式确保滚动位置恢复
+        const attemptScroll = (attempt = 0) => {
+          if (attempt > 5) return; // 最多尝试5次
+          
+          // 直接设置滚动位置
+          messageListRef.current.scrollTop = currentScrollTop;
+          
+          // 检查是否滚动成功
+          if (Math.abs(messageListRef.current.scrollTop - currentScrollTop) < 50) {
+            return; // 滚动成功
+          }
+          
+          // 如果直接设置scrollTop失败，尝试使用备用方法
+          if (visibleMessageIndex !== -1 && messageRefs.current[visibleMessageIndex]) {
+            const element = messageRefs.current[visibleMessageIndex];
+            element.scrollIntoView({
+              behavior: 'auto',
+              block: 'start'
+            });
+            
+            // 调整到精确位置
+            if (topElementOffset && messageListRef.current) {
+              // 延迟一帧再调整精确位置
+              requestAnimationFrame(() => {
+                const newRect = element.getBoundingClientRect();
+                const containerRect = messageListRef.current.getBoundingClientRect();
+                const currentOffset = newRect.top - containerRect.top;
+                messageListRef.current.scrollTop += (currentOffset - topElementOffset);
+              });
+            }
+          }
+          
+          // 如果还没成功，稍后再试
+          requestAnimationFrame(() => {
+            attemptScroll(attempt + 1);
+          });
+        };
+        
+        // 开始尝试滚动恢复
+        attemptScroll();
+      };
+    }
+  }));
+  
+  // 检测用户是否已经滚动到接近底部
+  const checkIfUserNearBottom = () => {
+    if (!messageListRef.current) return true;
+    
+    const container = messageListRef.current;
+    const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+    isUserNearBottomRef.current = isNearBottom;
+    
+    // 如果用户滚动到底部，重置向上滚动标记
+    if (isNearBottom) {
+      userHasScrolledUpRef.current = false;
+    }
+    
+    return isNearBottom;
+  };
+  
+  // 强制滚动到底部
+  const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  };
+  
+  // 智能滚动判断
+  const smartScrollToBottom = () => {
+    // 如果用户没有主动向上滚动，则始终滚动到底部
+    if (!userHasScrolledUpRef.current) {
+      scrollToBottom();
+    } 
+    // 如果用户已向上滚动，但当前在底部附近，也滚动
+    else if (isUserNearBottomRef.current) {
+      scrollToBottom();
+    }
+  };
+  
+  // 处理消息变化
+  useEffect(() => {
+    const isNewMessage = messages.length > prevMessagesLengthRef.current;
+    
+    // 流式响应中最后一条消息的内容变化
+    let isContentChanged = false;
+    if (isGenerating && messages.length > 0) {
+      const lastMessage = messages[messages.length - 1];
+      if (lastMessage.role === 'assistant' && lastMessage.content !== lastContentRef.current) {
+        lastContentRef.current = lastMessage.content;
+        isContentChanged = true;
+      }
+    }
+    
+    // 新消息处理逻辑
+    if (isNewMessage) {
+      // 获取最新的消息
+      const latestMessage = messages[messages.length - 1];
+      
+      // 如果是用户消息，始终滚动到底部，无论用户是否滚动过
+      if (latestMessage && latestMessage.role === 'user') {
+        scrollToBottom();
+      } else {
+        // 如果是AI消息，遵循智能滚动逻辑
+        smartScrollToBottom();
+      }
+    } 
+    // 在内容更新时，如果在生成回复则滚动到底部
+    else if (isGenerating && isContentChanged) {
+      smartScrollToBottom();
+    }
+    
+    prevMessagesLengthRef.current = messages.length;
+  }, [messages, isGenerating]);
+  
+  // 添加滚动监听
+  useEffect(() => {
+    const messageListElement = messageListRef.current;
+    if (messageListElement) {
+      const handleScroll = () => {
+        // 获取当前滚动位置
+        const currentScrollTop = messageListElement.scrollTop;
+        
+        // 检测是否是向上滚动
+        if (currentScrollTop < lastScrollTopRef.current) {
+          userHasScrolledUpRef.current = true;
+        }
+        
+        // 更新上次滚动位置
+        lastScrollTopRef.current = currentScrollTop;
+        
+        // 检查是否在底部附近
+        checkIfUserNearBottom();
+      };
+      
+      messageListElement.addEventListener('scroll', handleScroll);
+      return () => {
+        messageListElement.removeEventListener('scroll', handleScroll);
+      };
+    }
+  }, []);
+
+  // 处理重新生成按钮点击
+  const handleRegenerateClick = (index) => {
+    // 立即滚动到底部，除非用户手动滚动过
+    if (!userHasScrolledUpRef.current) {
+      scrollToBottom();
+    }
+    // 调用父组件传入的重新生成回调
+    onRegenerateMessage && onRegenerateMessage(index);
+  };
 
   // 处理复制消息
   const handleCopy = (index, content) => {
@@ -91,11 +296,16 @@ const MessageList = ({
   };
 
   return (
-    <div className="message-list">
+    <div 
+      className="message-list" 
+      ref={messageListRef}
+      style={{ overflow: 'auto', height: '100%' }} // 确保容器有明确的高度和滚动行为
+    >
       {messages.map((message, index) => (
         <div 
           key={index} 
           className={`message ${message.role}`}
+          ref={el => messageRefs.current[index] = el}
         >
           <div className="message-header">
             <div className="message-role">
@@ -154,7 +364,7 @@ const MessageList = ({
                   
                   <button 
                     className="message-action-btn" 
-                    onClick={() => onRegenerateMessage && onRegenerateMessage(index)}
+                    onClick={() => handleRegenerateClick(index)}
                     title="重新生成"
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -240,6 +450,6 @@ const MessageList = ({
       <div ref={messagesEndRef} />
     </div>
   );
-};
+});
 
 export default MessageList; 
