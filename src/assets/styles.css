@@ -1260,4 +1260,160 @@ input[type="password"].placeholder-input.showing-placeholder::placeholder {
 
 .api-error-message a:hover {
   text-decoration: underline;
+}
+
+/* API 配置部分 */
+.current-api-section {
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #eee;
+}
+
+.api-configs-section {
+  margin-bottom: 24px;
+}
+
+.api-configs-section h4,
+.add-api-config-section h4,
+.edit-api-config-section h4 {
+  margin-bottom: 16px;
+  color: #555;
+  font-size: 16px;
+}
+
+.no-configs-message {
+  padding: 12px;
+  background-color: #f9f9f9;
+  border: 1px dashed #ddd;
+  border-radius: 4px;
+  color: #666;
+  text-align: center;
+  font-style: italic;
+}
+
+.api-configs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.api-config-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  background-color: #f9f9f9;
+  transition: all 0.2s ease;
+}
+
+.api-config-item.selected {
+  border-color: #1a73e8;
+  background-color: #e8f0fe;
+}
+
+.api-config-info {
+  flex: 1;
+  cursor: pointer;
+}
+
+.api-config-name {
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.api-config-url {
+  font-size: 12px;
+  color: #666;
+  font-family: monospace;
+  word-break: break-all;
+}
+
+.api-config-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.edit-api-config-btn {
+  background-color: #e8f0fe;
+  color: #1a73e8;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.edit-api-config-btn:hover {
+  background-color: #d7e3f7;
+}
+
+.remove-api-config-btn {
+  background-color: #f8d7da;
+  color: #721c24;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.remove-api-config-btn:hover {
+  background-color: #f5c6cb;
+}
+
+.add-api-config-section,
+.edit-api-config-section {
+  padding: 16px;
+  background-color: #f9f9f9;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  margin-bottom: 16px;
+}
+
+.edit-api-config-section {
+  border-color: #1a73e8;
+  background-color: #f5f9ff;
+}
+
+.add-api-config-btn,
+.save-api-config-btn {
+  background-color: #1a73e8;
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  margin-top: 8px;
+}
+
+.add-api-config-btn:hover,
+.save-api-config-btn:hover {
+  background-color: #0d66d0;
+}
+
+.edit-api-config-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.cancel-edit-btn {
+  background-color: #f5f5f5;
+  color: #666;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.cancel-edit-btn:hover {
+  background-color: #e0e0e0;
 } 
