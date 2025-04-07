@@ -206,17 +206,33 @@ const SettingsPanel = () => {
     const updatedConfigs = [...settings.apiConfigs, newConfig];
     
     // 如果是第一个配置，自动设为当前选中
-    const currentId = settings.apiConfigs.length === 0 ? newId : settings.currentApiConfigId;
+    const isFirstConfig = settings.apiConfigs.length === 0;
+    const currentId = isFirstConfig ? newId : settings.currentApiConfigId;
     
     // 更新设置会自动触发保存
-    setSettings({
+    const updatedSettings = {
       ...settings,
       apiConfigs: updatedConfigs,
       currentApiConfigId: currentId
-    });
+    };
     
+    // 如果是第一个配置，同时更新当前使用的API URL和Key
+    if (isFirstConfig) {
+      updatedSettings.apiUrl = newApiConfig.apiUrl;
+      updatedSettings.apiKey = newApiConfig.apiKey;
+      
+      setApiUrlValue(newApiConfig.apiUrl);
+      setApiKeyValue(newApiConfig.apiKey);
+    }
+    
+    setSettings(updatedSettings);
     setNewApiConfig({ id: '', name: '', apiUrl: '', apiKey: '' });
-    setSaveMessage({ text: 'API配置添加成功', type: 'success' });
+    
+    const message = isFirstConfig 
+      ? `API配置添加成功并已启用: ${newApiConfig.name}`
+      : 'API配置添加成功';
+      
+    setSaveMessage({ text: message, type: 'success' });
     
     // 清除消息
     setTimeout(() => {
