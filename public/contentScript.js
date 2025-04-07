@@ -115,35 +115,37 @@ function handleCustomToolClick(tool) {
     // 获取当前时间作为引用ID
     const quoteId = Date.now().toString();
     
-    // 引用选中内容
+    // 引用选中内容并立即发送工具操作请求
     if (typeof chrome !== 'undefined' && chrome.runtime) {
-      // 添加引用
+      console.log('处理工具点击:', tool.name);
+      
+      // 添加引用和打开侧边栏操作
+      const addQuotePromise = new Promise(resolve => {
+        chrome.runtime.sendMessage({
+          type: 'addQuote',
+          quote: {
+            id: quoteId,
+            text: selectedText
+          }
+        }, () => resolve());
+      });
+      
+      // 立即打开侧边栏
+      const openSidePanelPromise = new Promise(resolve => {
+        chrome.runtime.sendMessage({
+          action: "openSidePanel"
+        }, () => resolve());
+      });
+      
+      // 不等待延迟，立即发送工具操作，由background.js来决定何时执行
+      console.log('立即发送工具操作请求:', tool.name);
       chrome.runtime.sendMessage({
-        type: 'addQuote',
-        quote: {
-          id: quoteId,
-          text: selectedText
+        type: 'executeToolAction',
+        data: {
+          text: selectedText,
+          prompt: tool.prompt
         }
       });
-      
-      console.log('已发送引用内容:', selectedText);
-      
-      // 打开侧边栏
-      chrome.runtime.sendMessage({
-        action: "openSidePanel"
-      });
-      
-      // 自动发送带有提示词的消息 - 使用延迟
-      setTimeout(() => {
-        console.log('准备发送工具操作:', tool.name);
-        chrome.runtime.sendMessage({
-          type: 'executeToolAction',
-          data: {
-            text: selectedText,
-            prompt: tool.prompt
-          }
-        });
-      }, 2500); // 增加延迟至2.5秒，确保侧边栏有足够时间加载对话历史
     }
     
     // 清除选区并隐藏工具栏

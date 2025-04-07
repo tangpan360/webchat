@@ -64,9 +64,27 @@ const ChatPanel = () => {
           console.error('加载对话数据失败:', error);
         }
       }
+      
+      // 通知background.js侧边栏已准备好
+      if (typeof chrome !== 'undefined' && chrome.runtime) {
+        chrome.runtime.sendMessage({
+          type: 'sidePanelReady'
+        });
+        console.log('已通知背景脚本侧边栏已准备好接收消息');
+      }
     };
     
     loadCurrentChat();
+    
+    // 侧边栏关闭时通知
+    return () => {
+      if (typeof chrome !== 'undefined' && chrome.runtime) {
+        chrome.runtime.sendMessage({
+          type: 'sidePanelClosed'
+        });
+        console.log('已通知背景脚本侧边栏已关闭');
+      }
+    };
   }, []);
 
   // 监听引用内容更新
@@ -81,10 +99,19 @@ const ChatPanel = () => {
     const handleToolAction = async (message) => {
       try {
         if (message.type === 'executeToolAction' && message.data) {
+          console.log('ChatPanel收到工具操作请求');
+          
           // 如果当前已经在加载或者生成中，不处理新的工具操作
           if (isLoading || isGenerating) {
             console.log('正在处理其他请求，忽略当前工具操作');
             return;
+          }
+          
+          // 立即确认收到消息
+          if (typeof chrome !== 'undefined' && chrome.runtime) {
+            chrome.runtime.sendMessage({
+              type: 'toolActionReceived'
+            });
           }
           
           // 确保有效的对话ID并尝试加载完整的对话历史
@@ -122,34 +149,29 @@ const ChatPanel = () => {
           
           // 构建完整消息：引用内容 + 提示词
           let fullContent = `> ${text}\n\n${prompt}`;
-          console.log('执行工具操作:', fullContent);
+          console.log('准备执行工具操作:', fullContent.substring(0, 50) + (fullContent.length > 50 ? '...' : ''));
           
           // 重置任何可能的错误状态
           setStreamingMessage(null);
           
-          // 延长延迟时间，确保状态已完全恢复
+          // 直接发送消息，不再使用延迟或轮询
+          console.log('立即执行发送操作');
+          handleSend(fullContent);
+          
+          // 添加安全检查，确保动画最终会消失
           setTimeout(() => {
-            // 再次检查状态，防止在延迟期间状态已改变
-            if (!isLoading && !isGenerating) {
-              // 自动发送消息
-              handleSend(fullContent);
-              
-              // 添加安全检查，确保动画最终会消失
-              setTimeout(() => {
-                // 如果30秒后仍然在加载状态，强制重置
-                if (isLoading || isGenerating) {
-                  console.log('检测到长时间加载，强制重置状态');
-                  setIsLoading(false);
-                  setIsGenerating(false);
-                  setStreamingMessage(null);
-                  if (abortControllerRef.current) {
-                    abortControllerRef.current.abort();
-                    abortControllerRef.current = null;
-                  }
-                }
-              }, 30000);
+            // 如果30秒后仍然在加载状态，强制重置
+            if (isLoading || isGenerating) {
+              console.log('检测到长时间加载，强制重置状态');
+              setIsLoading(false);
+              setIsGenerating(false);
+              setStreamingMessage(null);
+              if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+                abortControllerRef.current = null;
+              }
             }
-          }, 500);
+          }, 30000);
         }
       } catch (error) {
         console.error('执行工具操作失败:', error);
@@ -161,12 +183,29 @@ const ChatPanel = () => {
     };
 
     // 监听来自扩展后台的消息
-    const messageListener = (message) => {
+    const messageListener = (message, sender, sendResponse) => {
       if (message.type === 'updateQuotes') {
         setQuotes(message.quotes || []);
       } else if (message.type === 'executeToolAction') {
         handleToolAction(message);
+        // 发送接收确认
+        if (sendResponse) {
+          sendResponse({ received: true });
+        } else if (typeof chrome !== 'undefined' && chrome.runtime) {
+          // 如果没有sendResponse，尝试直接发送确认消息
+          chrome.runtime.sendMessage({
+            type: 'toolActionReceived'
+          });
+        }
+      } else if (message.type === 'checkToolActionReceived') {
+        // 如果收到检查消息但之前没有收到executeToolAction，则处理它
+        handleToolAction({
+          type: 'executeToolAction',
+          data: message.data
+        });
       }
+      
+      return true; // 表示将异步回复
     };
 
     // 添加消息监听器

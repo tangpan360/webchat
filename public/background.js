@@ -16,6 +16,11 @@ let quotedTexts = [];
 // 存储自定义工具
 let customTools = [];
 
+// 状态变量
+let pendingActions = []; // 存储等待执行的操作
+let sidePanelReady = false; // 侧边栏是否已准备好
+let sidePanelOpening = false; // 侧边栏是否正在打开中
+
 // 初始化存储
 chrome.storage.local.get(['customTools'], (result) => {
   if (result.customTools) {
@@ -23,10 +28,44 @@ chrome.storage.local.get(['customTools'], (result) => {
   }
 });
 
+// 跟踪侧边栏状态
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === "sidePanelReady") {
+    console.log("侧边栏已准备好接收消息");
+    sidePanelReady = true;
+    sidePanelOpening = false;
+    
+    // 处理所有待处理的操作
+    if (pendingActions.length > 0) {
+      console.log(`执行${pendingActions.length}个待处理操作`);
+      pendingActions.forEach(action => {
+        chrome.runtime.sendMessage(action);
+      });
+      pendingActions = []; // 清空待处理队列
+    }
+    
+    if (sendResponse) {
+      sendResponse({ status: "acknowledged" });
+    }
+  }
+  
+  // 当侧边栏关闭时重置状态
+  if (message.type === "sidePanelClosed") {
+    sidePanelReady = false;
+    console.log("侧边栏已关闭");
+    if (sendResponse) {
+      sendResponse({ status: "acknowledged" });
+    }
+  }
+});
+
 // 监听来自content script的消息
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // 处理打开侧边栏的请求
   if (message.action === "openSidePanel") {
+    // 标记侧边栏正在打开
+    sidePanelOpening = true;
+    sidePanelReady = false;
     chrome.sidePanel.open({ windowId: sender.tab?.windowId });
   }
   
@@ -124,16 +163,52 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       
       console.log('background收到工具操作请求:', message.data.prompt);
       
-      // 延迟发送以确保侧边栏已加载完成
-      setTimeout(() => {
-        // 通知侧边栏执行工具操作
-        chrome.runtime.sendMessage({
-          type: "executeToolAction",
-          data: message.data
-        });
-      }, 1500); // 增加延迟至1.5秒，确保侧边栏有足够时间完全初始化和加载历史
+      const actionMessage = {
+        type: "executeToolAction",
+        data: message.data
+      };
+      
+      // 如果侧边栏已准备好，直接发送
+      if (sidePanelReady) {
+        console.log('侧边栏已准备好，直接发送工具操作');
+        chrome.runtime.sendMessage(actionMessage);
+      } 
+      // 如果侧边栏正在打开中，添加到待处理队列
+      else if (sidePanelOpening) {
+        console.log('侧边栏正在打开中，添加到待处理队列');
+        pendingActions.push(actionMessage);
+        
+        // 设置较短的超时，如果侧边栏没有响应就强制发送
+        setTimeout(() => {
+          if (pendingActions.includes(actionMessage)) {
+            console.log('侧边栏打开超时，强制发送工具操作');
+            chrome.runtime.sendMessage(actionMessage);
+            // 从队列中移除
+            pendingActions = pendingActions.filter(a => a !== actionMessage);
+          }
+        }, 800); // 减少到800ms
+      } 
+      // 侧边栏可能已经打开但我们不知道其状态，尝试直接发送
+      else {
+        console.log('侧边栏状态未知，尝试直接发送工具操作');
+        chrome.runtime.sendMessage(actionMessage);
+      }
     } catch (error) {
       console.error('执行工具操作出错:', error);
     }
+  }
+  
+  // 处理工具操作接收确认
+  if (message.type === "toolActionReceived") {
+    console.log('工具操作已被侧边栏接收');
+  }
+  
+  // 检查工具操作是否已接收
+  if (message.type === "checkToolActionReceived") {
+    // 如果侧边栏尚未收到原始消息，则重新发送
+    chrome.runtime.sendMessage({
+      type: "executeToolAction",
+      data: message.data
+    });
   }
 }); 
