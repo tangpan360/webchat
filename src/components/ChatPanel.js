@@ -34,12 +34,39 @@ const ChatPanel = () => {
 
   // 尝试从localStorage恢复currentChatId
   useEffect(() => {
-    const savedChatId = localStorage.getItem(CURRENT_CHAT_KEY);
-    if (savedChatId) {
-      console.log('从localStorage恢复对话ID:', savedChatId);
-      setChatId(savedChatId);
-      lastChatIdRef.current = savedChatId;
-    }
+    const loadCurrentChat = async () => {
+      const savedChatId = localStorage.getItem(CURRENT_CHAT_KEY);
+      if (savedChatId) {
+        console.log('从localStorage恢复对话ID:', savedChatId);
+        setChatId(savedChatId);
+        lastChatIdRef.current = savedChatId;
+        
+        // 立即加载对话内容，防止历史丢失
+        try {
+          const chats = await getStorage('chats') || {};
+          if (chats[savedChatId]) {
+            console.log('立即加载找到的对话:', chats[savedChatId].title);
+            setMessages(chats[savedChatId].messages || []);
+            setCurrentChatTitle(chats[savedChatId].title || '新对话');
+            setSelectedModel(chats[savedChatId].model || 'gpt-3.5-turbo');
+            
+            // 确保所有状态被重置 - 特别是在侧边栏重新打开的情况下
+            setIsLoading(false);
+            setIsGenerating(false);
+            setStreamingMessage(null);
+            if (abortControllerRef.current) {
+              abortControllerRef.current = null;
+            }
+          } else {
+            console.log('存储中未找到对话:', savedChatId);
+          }
+        } catch (error) {
+          console.error('加载对话数据失败:', error);
+        }
+      }
+    };
+    
+    loadCurrentChat();
   }, []);
 
   // 监听引用内容更新
@@ -51,7 +78,7 @@ const ChatPanel = () => {
     };
 
     // 监听工具执行操作
-    const handleToolAction = (message) => {
+    const handleToolAction = async (message) => {
       try {
         if (message.type === 'executeToolAction' && message.data) {
           // 如果当前已经在加载或者生成中，不处理新的工具操作
@@ -60,15 +87,34 @@ const ChatPanel = () => {
             return;
           }
           
-          // 确保有效的对话ID
+          // 确保有效的对话ID并尝试加载完整的对话历史
           if (!currentChatId) {
             const savedChatId = localStorage.getItem(CURRENT_CHAT_KEY) || lastChatIdRef.current;
             if (savedChatId) {
               console.log('工具操作前恢复对话ID:', savedChatId);
               setChatId(savedChatId);
+              
+              // 尝试加载对话历史
+              const chats = await getStorage('chats') || {};
+              if (chats[savedChatId]) {
+                console.log('从存储恢复对话历史:', chats[savedChatId].messages?.length || 0, '条消息');
+                setMessages(chats[savedChatId].messages || []);
+                setCurrentChatTitle(chats[savedChatId].title || '新对话');
+                setSelectedModel(chats[savedChatId].model || 'gpt-3.5-turbo');
+              }
             } else {
               console.log('没有找到有效的对话ID，可能需要创建新对话');
               // 不立即创建，让handleSend函数处理
+            }
+          } else {
+            // 即使有currentChatId，也确保消息历史是最新的
+            if (messages.length === 0) {
+              console.log('当前有对话ID但消息为空，尝试恢复历史消息');
+              const chats = await getStorage('chats') || {};
+              if (chats[currentChatId]) {
+                console.log('从存储恢复对话历史:', chats[currentChatId].messages?.length || 0, '条消息');
+                setMessages(chats[currentChatId].messages || []);
+              }
             }
           }
           
@@ -81,17 +127,36 @@ const ChatPanel = () => {
           // 重置任何可能的错误状态
           setStreamingMessage(null);
           
-          // 延迟一点时间再执行，确保UI已经稳定
+          // 延长延迟时间，确保状态已完全恢复
           setTimeout(() => {
             // 再次检查状态，防止在延迟期间状态已改变
             if (!isLoading && !isGenerating) {
               // 自动发送消息
               handleSend(fullContent);
+              
+              // 添加安全检查，确保动画最终会消失
+              setTimeout(() => {
+                // 如果30秒后仍然在加载状态，强制重置
+                if (isLoading || isGenerating) {
+                  console.log('检测到长时间加载，强制重置状态');
+                  setIsLoading(false);
+                  setIsGenerating(false);
+                  setStreamingMessage(null);
+                  if (abortControllerRef.current) {
+                    abortControllerRef.current.abort();
+                    abortControllerRef.current = null;
+                  }
+                }
+              }, 30000);
             }
-          }, 100);
+          }, 500);
         }
       } catch (error) {
         console.error('执行工具操作失败:', error);
+        // 确保错误情况下也重置状态
+        setIsLoading(false);
+        setIsGenerating(false);
+        setStreamingMessage(null);
       }
     };
 
@@ -136,6 +201,16 @@ const ChatPanel = () => {
         chrome.runtime.onMessage.removeListener(messageListener);
       }
       window.removeEventListener('message', windowMessageHandler);
+      
+      // 组件卸载时清理状态，防止侧边栏关闭再打开时状态不一致
+      if (isLoading || isGenerating) {
+        console.log('组件卸载时重置状态');
+        // 如果有进行中的请求，取消它
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+          abortControllerRef.current = null;
+        }
+      }
     };
   }, [isLoading, isGenerating, currentChatId]);
 
@@ -186,24 +261,28 @@ const ChatPanel = () => {
       }
     };
     
-    // 创建新对话
-    const createNewChat = async () => {
+    // 创建新对话或恢复现有对话
+    const initializeChat = async () => {
       // 检查是否有已保存的对话ID
       const savedChatId = localStorage.getItem(CURRENT_CHAT_KEY);
       if (savedChatId) {
         console.log('尝试从localStorage加载对话:', savedChatId);
         const chats = await getStorage('chats') || {};
         if (chats[savedChatId]) {
+          console.log('成功加载保存的对话:', chats[savedChatId].title);
           setChatId(savedChatId);
           setSelectedModel(chats[savedChatId].model || 'gpt-3.5-turbo');
           setMessages(chats[savedChatId].messages || []);
           setCurrentChatTitle(chats[savedChatId].title || '新对话');
           return; // 已加载保存的对话，无需创建新对话
+        } else {
+          console.warn('保存的对话ID存在，但对话数据未找到:', savedChatId);
         }
       }
       
-      // 创建新对话
+      // 如果没有有效的保存对话，则创建新对话
       const newChatId = `chat_${Date.now()}`;
+      console.log('创建新对话:', newChatId);
       setChatId(newChatId);
       
       // 初始化新对话
@@ -232,7 +311,7 @@ const ChatPanel = () => {
     window.addEventListener('newChat', handleNewChatEvent);
     
     // 初始化对话
-    createNewChat();
+    initializeChat();
     
     return () => {
       window.removeEventListener('loadChat', handleLoadChat);
@@ -316,7 +395,10 @@ const ChatPanel = () => {
           // 尝试加载对话历史
           const chats = await getStorage('chats') || {};
           if (chats[savedChatId]) {
+            console.log('加载历史消息:', chats[savedChatId].messages?.length || 0, '条');
             setMessages(chats[savedChatId].messages || []);
+            setCurrentChatTitle(chats[savedChatId].title || '新对话');
+            setSelectedModel(chats[savedChatId].model || 'gpt-3.5-turbo');
           }
         } else {
           // 创建新对话
@@ -336,6 +418,119 @@ const ChatPanel = () => {
           const chats = await getStorage('chats') || {};
           chats[newChatId] = newChat;
           await saveChat(chats);
+        }
+      } else if (messages.length === 0) {
+        // 有对话ID但没有消息，可能是侧边栏刚刚打开
+        console.log('有对话ID但没有消息，尝试从存储加载');
+        try {
+          const chats = await getStorage('chats') || {};
+          if (chats[currentChatId]) {
+            console.log('从存储加载对话消息:', chats[currentChatId].messages?.length || 0, '条');
+            setMessages(chats[currentChatId].messages || []);
+            // 确保更新后再添加新消息
+            const currentMessages = chats[currentChatId].messages || [];
+            
+            const userMessage = {
+              role: 'user',
+              content: fullContent
+            };
+            
+            // 清空输入框和引用内容
+            setInput('');
+            setQuotes([]);
+            
+            // 如果使用的是Chrome扩展环境，通知后台清空引用内容
+            if (typeof chrome !== 'undefined' && chrome.runtime) {
+              chrome.runtime.sendMessage({
+                type: 'clearAllQuotes'
+              });
+            }
+            
+            // 将新消息添加到当前消息列表
+            setMessages([...currentMessages, userMessage]);
+            // 后续代码继续处理发送...
+            setIsLoading(true);
+            setIsGenerating(true);
+            
+            // 创建流式响应的初始消息
+            setStreamingMessage({
+              role: 'assistant',
+              content: '',
+              model: selectedModel  // 添加模型信息
+            });
+            
+            try {
+              // 创建AbortController用于中断请求
+              abortControllerRef.current = new AbortController();
+              
+              // 使用回调函数实现流式输出
+              const onChunkReceived = (chunk) => {
+                setStreamingMessage(prev => {
+                  if (!prev) return {
+                    role: 'assistant',
+                    content: chunk,
+                    model: selectedModel
+                  };
+                  return {
+                    ...prev,
+                    content: prev.content + chunk
+                  };
+                });
+              };
+              
+              const assistantMessage = await sendMessage(
+                fullContent, 
+                selectedModel, 
+                currentMessages, // 使用加载的历史消息 
+                onChunkReceived, 
+                abortControllerRef.current.signal
+              );
+              
+              // 为AI消息添加模型信息
+              assistantMessage.model = selectedModel;
+              
+              // 完成后清除流式消息，并添加完整回复
+              setStreamingMessage(null);
+              
+              const updatedMessages = [...currentMessages, userMessage, assistantMessage];
+              setMessages(updatedMessages);
+              
+              // 更新存储
+              if (currentChatId) {
+                const updatedChats = await getStorage('chats') || {};
+                if (updatedChats[currentChatId]) {
+                  // 如果是第一次发送消息，自动更新对话标题
+                  if (updatedChats[currentChatId].messages.length === 0 && updatedChats[currentChatId].title === '新对话') {
+                    const newTitle = generateChatTitle(messageContent);
+                    updatedChats[currentChatId].title = newTitle;
+                    setCurrentChatTitle(newTitle);
+                  }
+                  
+                  updatedChats[currentChatId].messages = updatedMessages;
+                  updatedChats[currentChatId].model = selectedModel;
+                  await saveChat(updatedChats);
+                }
+              }
+              
+              // 确保重置状态
+              setIsLoading(false);
+              setIsGenerating(false);
+              setStreamingMessage(null);
+              abortControllerRef.current = null;
+              
+              return; // 结束执行，跳过下面的普通处理流程
+            } catch (error) {
+              // 处理错误...
+              console.error('发送消息失败:', error);
+              setIsLoading(false);
+              setIsGenerating(false);
+              setStreamingMessage(null);
+              abortControllerRef.current = null;
+              return; // 结束执行
+            }
+          }
+        } catch (error) {
+          console.error('加载对话历史失败:', error);
         }
       }
       

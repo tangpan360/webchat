@@ -131,7 +131,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           type: "executeToolAction",
           data: message.data
         });
-      }, 500);
+      }, 1500); // 增加延迟至1.5秒，确保侧边栏有足够时间完全初始化和加载历史
     } catch (error) {
       console.error('执行工具操作出错:', error);
     }

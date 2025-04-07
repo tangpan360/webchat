@@ -143,7 +143,7 @@ function handleCustomToolClick(tool) {
             prompt: tool.prompt
           }
         });
-      }, 1500); // 延迟1.5秒，给侧边栏足够时间加载和初始化
+      }, 2500); // 增加延迟至2.5秒，确保侧边栏有足够时间加载对话历史
     }
     
     // 清除选区并隐藏工具栏
