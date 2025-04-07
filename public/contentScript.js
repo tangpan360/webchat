@@ -13,7 +13,7 @@ function createToolsContainer() {
   
   // 创建工具栏容器
   toolsContainer = document.createElement('div');
-  toolsContainer.className = 'webchat-tools-container';
+  toolsContainer.className = 'webchat-tools-container webchat-extension-styles';
   
   // 添加到文档中
   document.body.appendChild(toolsContainer);
@@ -265,6 +265,12 @@ function init() {
       font-size: 12px;
       cursor: pointer;
       font-family: system-ui, -apple-system, sans-serif;
+      min-width: auto !important;
+      max-width: none !important;
+      width: auto !important;
+      height: auto !important;
+      line-height: normal !important;
+      margin: 0 !important;
     }
     
     .webchat-tool-button:hover {

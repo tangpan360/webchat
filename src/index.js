@@ -7,8 +7,12 @@ import './assets/styles.css';
 if (window.location.pathname === '/index.html' || 
     window.location.href.includes('chrome-extension://')) {
   document.body.classList.add('webchat-panel');
+  document.body.classList.add('webchat-extension-styles');
 }
 
 const container = document.getElementById('app');
-const root = createRoot(container);
-root.render(<App />); 
+if (container) {
+  container.classList.add('webchat-extension-styles');
+  const root = createRoot(container);
+  root.render(<App />);
+} 

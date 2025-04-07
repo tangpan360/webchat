@@ -21,7 +21,7 @@
     
     // 创建按钮元素
     const floatButton = document.createElement('button');
-    floatButton.className = 'webchat-float-button';
+    floatButton.className = 'webchat-float-button webchat-extension-styles';
     floatButton.setAttribute('title', '打开AI对话');
     floatButton.innerHTML = `
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

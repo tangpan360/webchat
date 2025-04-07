@@ -1,33 +1,41 @@
-* {
+/* 这些样式仅应用于扩展的自身元素，不影响网页内容 */
+.webchat-extension-styles {
+  --webchat-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --webchat-bg-color: #f5f5f5;
+  --webchat-text-color: #333;
+  --webchat-border-color: #e0e0e0;
+  --webchat-active-color: #1a73e8;
+}
+
+/* 只应用于侧边栏面板 */
+body.webchat-panel {
+  font-family: var(--webchat-font-family);
+  background-color: var(--webchat-bg-color);
+  color: var(--webchat-text-color);
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-}
-
-body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  background-color: #f5f5f5;
-  color: #333;
   height: 100vh;
-}
-
-body.webchat-panel {
   overflow: hidden;
 }
 
-#app {
+body.webchat-panel * {
+  box-sizing: border-box;
+}
+
+body.webchat-panel #app {
   height: 100vh;
   display: flex;
   flex-direction: column;
 }
 
-.tab-container {
+body.webchat-panel .tab-container {
   display: flex;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid var(--webchat-border-color);
   background-color: #fff;
 }
 
-.tab {
+body.webchat-panel .tab {
   padding: 12px 16px;
   cursor: pointer;
   font-weight: 500;
@@ -36,18 +44,18 @@ body.webchat-panel {
   border-bottom: 2px solid transparent;
 }
 
-.tab.active {
-  color: #1a73e8;
-  border-bottom: 2px solid #1a73e8;
+body.webchat-panel .tab.active {
+  color: var(--webchat-active-color);
+  border-bottom: 2px solid var(--webchat-active-color);
 }
 
-.content {
+body.webchat-panel .content {
   flex: 1;
   overflow: auto;
   padding: 16px;
   background-color: #fff;
 }
 
-.hidden {
+body.webchat-panel .hidden {
   display: none;
 } 
