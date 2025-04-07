@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "WebChat",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "浏览器侧边栏AI问答插件",
   "action": {
     "default_title": "WebChat",
