@@ -10,16 +10,30 @@ const ModelSelector = ({ selectedModel, setSelectedModel }) => {
   
   const [isOpen, setIsOpen] = useState(false);
 
+  // 初始加载模型列表
   useEffect(() => {
-    const loadModels = async () => {
-      const settings = await getStorage('settings');
-      if (settings && settings.models) {
-        setModels(settings.models);
-      }
-    };
-    
     loadModels();
   }, []);
+
+  // 每次打开下拉菜单时重新加载模型列表
+  useEffect(() => {
+    if (isOpen) {
+      loadModels();
+    }
+  }, [isOpen]);
+
+  // 加载模型列表的函数
+  const loadModels = async () => {
+    const settings = await getStorage('settings');
+    if (settings && settings.models) {
+      setModels(settings.models);
+      
+      // 如果当前选中的模型不在列表中，则选择第一个模型
+      if (settings.models.length > 0 && !settings.models.some(model => model.id === selectedModel)) {
+        setSelectedModel(settings.models[0].id);
+      }
+    }
+  };
 
   return (
     <div className="model-selector">

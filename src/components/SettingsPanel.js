@@ -35,6 +35,33 @@ const SettingsPanel = () => {
   const [apiUrlValue, setApiUrlValue] = useState('');
   const [apiKeyValue, setApiKeyValue] = useState('');
 
+  // 自动保存设置的函数
+  const saveSettings = async (updatedSettings) => {
+    setIsSaving(true);
+    try {
+      await setStorage('settings', updatedSettings);
+      setSaveMessage({ text: '设置已自动保存', type: 'success' });
+    } catch (error) {
+      console.error('保存设置失败:', error);
+      setSaveMessage({ text: '保存设置失败: ' + error.message, type: 'error' });
+    } finally {
+      setIsSaving(false);
+      
+      // 清除消息
+      setTimeout(() => {
+        setSaveMessage({ text: '', type: '' });
+      }, 3000);
+    }
+  };
+
+  // 监听settings变化并自动保存
+  useEffect(() => {
+    // 避免初始加载时保存
+    if (settings.apiConfigs.length > 0 || settings.models.length > 3) {
+      saveSettings(settings);
+    }
+  }, [settings]);
+
   useEffect(() => {
     const loadSettings = async () => {
       const savedSettings = await getStorage('settings');
@@ -67,12 +94,36 @@ const SettingsPanel = () => {
 
   // 处理 API URL 输入变更
   const handleApiUrlChange = (e) => {
-    setApiUrlValue(e.target.value);
+    const newValue = e.target.value;
+    setApiUrlValue(newValue);
+  };
+
+  // 处理 API URL 失焦事件时保存
+  const handleApiUrlBlur = () => {
+    setIsApiUrlFocused(false);
+    // 更新并保存设置
+    const updatedSettings = {
+      ...settings,
+      apiUrl: apiUrlValue
+    };
+    setSettings(updatedSettings);
   };
 
   // 处理 API Key 输入变更
   const handleApiKeyChange = (e) => {
-    setApiKeyValue(e.target.value);
+    const newValue = e.target.value;
+    setApiKeyValue(newValue);
+  };
+
+  // 处理 API Key 失焦事件时保存
+  const handleApiKeyBlur = () => {
+    setIsApiKeyFocused(false);
+    // 更新并保存设置
+    const updatedSettings = {
+      ...settings,
+      apiKey: apiKeyValue
+    };
+    setSettings(updatedSettings);
   };
 
   // 处理 API URL 聚焦事件
@@ -85,42 +136,16 @@ const SettingsPanel = () => {
     setIsApiKeyFocused(true);
   };
 
-  // 处理 API URL 失焦事件
-  const handleApiUrlBlur = () => {
-    setIsApiUrlFocused(false);
+  const toggleApiKeyVisibility = () => {
+    setShowApiKey(!showApiKey);
   };
 
-  // 处理 API Key 失焦事件
-  const handleApiKeyBlur = () => {
-    setIsApiKeyFocused(false);
+  const toggleNewApiKeyVisibility = () => {
+    setShowNewApiKey(!showNewApiKey);
   };
 
-  const handleSave = async () => {
-    // 保存前更新设置中的 URL 和 Key 值
-    const updatedSettings = {
-      ...settings,
-      apiUrl: apiUrlValue,  // 直接使用当前输入值，即使为空
-      apiKey: apiKeyValue   // 直接使用当前输入值，即使为空
-    };
-    
-    setSettings(updatedSettings);
-    setIsSaving(true);
-    setSaveMessage({ text: '', type: '' });
-    
-    try {
-      await setStorage('settings', updatedSettings);
-      setSaveMessage({ text: '设置保存成功！', type: 'success' });
-    } catch (error) {
-      console.error('保存设置失败:', error);
-      setSaveMessage({ text: '保存设置失败: ' + error.message, type: 'error' });
-    } finally {
-      setIsSaving(false);
-      
-      // 清除消息
-      setTimeout(() => {
-        setSaveMessage({ text: '', type: '' });
-      }, 3000);
-    }
+  const toggleEditApiKeyVisibility = () => {
+    setShowEditApiKey(!showEditApiKey);
   };
 
   const handleAddModel = () => {
@@ -135,6 +160,7 @@ const SettingsPanel = () => {
       return;
     }
     
+    // 更新设置会自动触发保存
     setSettings({
       ...settings,
       models: [...settings.models, { ...newModel }]
@@ -150,22 +176,18 @@ const SettingsPanel = () => {
   };
 
   const handleRemoveModel = (modelId) => {
+    // 更新设置会自动触发保存
     setSettings({
       ...settings,
       models: settings.models.filter(model => model.id !== modelId)
     });
-  };
-
-  const toggleApiKeyVisibility = () => {
-    setShowApiKey(!showApiKey);
-  };
-
-  const toggleNewApiKeyVisibility = () => {
-    setShowNewApiKey(!showNewApiKey);
-  };
-
-  const toggleEditApiKeyVisibility = () => {
-    setShowEditApiKey(!showEditApiKey);
+    
+    setSaveMessage({ text: '模型已删除', type: 'success' });
+    
+    // 清除消息
+    setTimeout(() => {
+      setSaveMessage({ text: '', type: '' });
+    }, 3000);
   };
 
   // 添加新的API配置
@@ -186,6 +208,7 @@ const SettingsPanel = () => {
     // 如果是第一个配置，自动设为当前选中
     const currentId = settings.apiConfigs.length === 0 ? newId : settings.currentApiConfigId;
     
+    // 更新设置会自动触发保存
     setSettings({
       ...settings,
       apiConfigs: updatedConfigs,
@@ -208,6 +231,7 @@ const SettingsPanel = () => {
     // 如果删除的是当前选中的配置，则清除当前选中
     const currentId = settings.currentApiConfigId === configId ? null : settings.currentApiConfigId;
     
+    // 更新设置会自动触发保存
     setSettings({
       ...settings,
       apiConfigs: updatedConfigs,
@@ -218,12 +242,20 @@ const SettingsPanel = () => {
     if (editingApiConfig && editingApiConfig.id === configId) {
       setEditingApiConfig(null);
     }
+    
+    setSaveMessage({ text: 'API配置已删除', type: 'success' });
+    
+    // 清除消息
+    setTimeout(() => {
+      setSaveMessage({ text: '', type: '' });
+    }, 3000);
   };
 
   // 选择API配置
   const handleSelectApiConfig = (configId) => {
     const selectedConfig = settings.apiConfigs.find(config => config.id === configId);
     if (selectedConfig) {
+      // 更新设置会自动触发保存
       setSettings({
         ...settings,
         currentApiConfigId: configId,
@@ -265,23 +297,22 @@ const SettingsPanel = () => {
       config.id === editingApiConfig.id ? editingApiConfig : config
     );
 
-    setSettings({
+    const updatedSettings = {
       ...settings,
       apiConfigs: updatedConfigs
-    });
+    };
 
     // 如果编辑的是当前选中的配置，同时更新当前使用的API URL和Key
     if (settings.currentApiConfigId === editingApiConfig.id) {
-      setSettings(prev => ({
-        ...prev,
-        apiUrl: editingApiConfig.apiUrl,
-        apiKey: editingApiConfig.apiKey
-      }));
+      updatedSettings.apiUrl = editingApiConfig.apiUrl;
+      updatedSettings.apiKey = editingApiConfig.apiKey;
 
       setApiUrlValue(editingApiConfig.apiUrl);
       setApiKeyValue(editingApiConfig.apiKey);
     }
 
+    // 更新设置会自动触发保存
+    setSettings(updatedSettings);
     setEditingApiConfig(null);
     setSaveMessage({ text: 'API配置更新成功', type: 'success' });
 
@@ -296,6 +327,14 @@ const SettingsPanel = () => {
     setEditingApiConfig(null);
   };
 
+  // 处理上下文控制设置变更
+  const handleContextSettingChange = (field, value) => {
+    setSettings({ 
+      ...settings, 
+      [field]: parseInt(value) || 0 
+    });
+  };
+
   return (
     <div className="settings-panel">
       <div className="panel-header">
@@ -306,13 +345,6 @@ const SettingsPanel = () => {
               {saveMessage.text}
             </div>
           )}
-          <button 
-            className="save-settings-btn"
-            onClick={handleSave}
-            disabled={isSaving}
-          >
-            {isSaving ? '保存中...' : '保存设置'}
-          </button>
         </div>
       </div>
       
@@ -613,10 +645,7 @@ const SettingsPanel = () => {
               min="0"
               max="100"
               value={settings.maxHistoryMessages}
-              onChange={(e) => setSettings({ 
-                ...settings, 
-                maxHistoryMessages: parseInt(e.target.value) || 0 
-              })}
+              onChange={(e) => handleContextSettingChange('maxHistoryMessages', e.target.value)}
             />
             <small className="form-hint">每次请求携带的最大历史消息数量，推荐值: 10-20</small>
           </div>
@@ -629,10 +658,7 @@ const SettingsPanel = () => {
               min="0"
               max="10000"
               value={settings.compressionThreshold}
-              onChange={(e) => setSettings({ 
-                ...settings, 
-                compressionThreshold: parseInt(e.target.value) || 0 
-              })}
+              onChange={(e) => handleContextSettingChange('compressionThreshold', e.target.value)}
             />
             <small className="form-hint">超过此字符数的消息将被压缩，推荐值: 800-1500</small>
           </div>
