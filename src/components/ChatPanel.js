@@ -21,6 +21,13 @@ const ChatPanel = () => {
   const [apiError, setApiError] = useState('');
   const abortControllerRef = useRef(null);
   const lastChatIdRef = useRef(null); // 用于跟踪上一次的聊天ID
+  // 添加新的引用，用于实时获取当前选中的模型
+  const currentModelRef = useRef(selectedModel);
+
+  // 跟踪selectedModel的变化，更新引用值
+  useEffect(() => {
+    currentModelRef.current = selectedModel;
+  }, [selectedModel]);
 
   // 自定义setCurrentChatId函数，在设置时同时保存到localStorage
   const setChatId = (chatId) => {
@@ -373,6 +380,32 @@ const ChatPanel = () => {
     return trimmedContent.substring(0, 20) + '...';
   };
 
+  // 自定义设置模型的函数，同时更新引用和状态
+  const handleModelChange = (modelId) => {
+    setSelectedModel(modelId);
+    currentModelRef.current = modelId;
+    
+    // 如果有当前对话，更新对话的模型信息
+    if (currentChatId) {
+      updateChatModel(currentChatId, modelId);
+    }
+  };
+  
+  // 更新对话使用的模型
+  const updateChatModel = async (chatId, modelId) => {
+    if (!chatId) return;
+    
+    try {
+      const chats = await getStorage('chats') || {};
+      if (chats[chatId]) {
+        chats[chatId].model = modelId;
+        await saveChat(chats);
+      }
+    } catch (error) {
+      console.error('更新对话模型失败:', error);
+    }
+  };
+
   // 处理发送消息逻辑
   const handleSend = async (overrideInput = null) => {
     try {
@@ -402,6 +435,9 @@ const ChatPanel = () => {
         console.log('发送条件不满足或当前正在处理其他请求');
         return;
       }
+
+      // 使用当前最新的模型设置，确保模型选择后立即使用
+      const currentModel = currentModelRef.current;
       
       // 组合引用内容和用户输入
       let fullContent = '';
@@ -495,7 +531,7 @@ const ChatPanel = () => {
             setStreamingMessage({
               role: 'assistant',
               content: '',
-              model: selectedModel  // 添加模型信息
+              model: currentModel  // 使用当前引用的模型值
             });
             
             try {
@@ -508,7 +544,7 @@ const ChatPanel = () => {
                   if (!prev) return {
                     role: 'assistant',
                     content: chunk,
-                    model: selectedModel
+                    model: currentModel
                   };
                   return {
                     ...prev,
@@ -519,14 +555,14 @@ const ChatPanel = () => {
               
               const assistantMessage = await sendMessage(
                 fullContent, 
-                selectedModel, 
+                currentModel, // 使用当前引用的模型值
                 currentMessages, // 使用加载的历史消息 
                 onChunkReceived, 
                 abortControllerRef.current.signal
               );
               
               // 为AI消息添加模型信息
-              assistantMessage.model = selectedModel;
+              assistantMessage.model = currentModel;
               
               // 完成后清除流式消息，并添加完整回复
               setStreamingMessage(null);
@@ -546,7 +582,7 @@ const ChatPanel = () => {
                   }
                   
                   updatedChats[currentChatId].messages = updatedMessages;
-                  updatedChats[currentChatId].model = selectedModel;
+                  updatedChats[currentChatId].model = currentModel;
                   await saveChat(updatedChats);
                 }
               }
@@ -589,9 +625,24 @@ const ChatPanel = () => {
         });
       }
       
-      // 更新消息列表
-      const currentMessages = [...messages];
-      setMessages([...currentMessages, userMessage]);
+      // 将新消息添加到当前消息列表
+      const updatedMessages = [...messages, userMessage];
+      setMessages(updatedMessages);
+      
+      // 如果是第一条消息，自动更新对话标题
+      if (messages.length === 0 && (!currentChatTitle || currentChatTitle === '新对话')) {
+        const newTitle = generateChatTitle(messageContent);
+        setCurrentChatTitle(newTitle);
+        
+        // 更新存储中的标题
+        if (currentChatId) {
+          const chats = await getStorage('chats') || {};
+          if (chats[currentChatId]) {
+            chats[currentChatId].title = newTitle;
+            await saveChat(chats);
+          }
+        }
+      }
       
       setIsLoading(true);
       setIsGenerating(true);
@@ -600,7 +651,7 @@ const ChatPanel = () => {
       setStreamingMessage({
         role: 'assistant',
         content: '',
-        model: selectedModel  // 添加模型信息
+        model: currentModel // 使用当前引用的模型值
       });
       
       try {
@@ -613,7 +664,7 @@ const ChatPanel = () => {
             if (!prev) return {
               role: 'assistant',
               content: chunk,
-              model: selectedModel
+              model: currentModel
             };
             return {
               ...prev,
@@ -624,41 +675,34 @@ const ChatPanel = () => {
         
         const assistantMessage = await sendMessage(
           fullContent, 
-          selectedModel, 
-          currentMessages, // 使用最新的消息历史
+          currentModel, // 使用当前引用的模型值
+          messages, 
           onChunkReceived, 
           abortControllerRef.current.signal
         );
         
         // 为AI消息添加模型信息
-        assistantMessage.model = selectedModel;
+        assistantMessage.model = currentModel;
         
         // 完成后清除流式消息，并添加完整回复
         setStreamingMessage(null);
         
-        const updatedMessages = [...currentMessages, userMessage, assistantMessage];
+        const updatedMessages = [...messages, userMessage, assistantMessage];
         setMessages(updatedMessages);
         
         // 更新存储
         if (currentChatId) {
           const chats = await getStorage('chats') || {};
           if (chats[currentChatId]) {
-            // 如果是第一次发送消息，自动更新对话标题
-            if (chats[currentChatId].messages.length === 0 && chats[currentChatId].title === '新对话') {
-              const newTitle = generateChatTitle(messageContent);
-              chats[currentChatId].title = newTitle;
-              setCurrentChatTitle(newTitle);
-            }
-            
             chats[currentChatId].messages = updatedMessages;
-            chats[currentChatId].model = selectedModel;
+            chats[currentChatId].model = currentModel;
             await saveChat(chats);
           } else {
             // 处理对话不存在的情况
             chats[currentChatId] = {
               id: currentChatId,
               title: generateChatTitle(messageContent),
-              model: selectedModel,
+              model: currentModel,
               createdAt: new Date().toISOString(),
               messages: updatedMessages
             };
@@ -679,7 +723,7 @@ const ChatPanel = () => {
               content: streamingMessage.content
             };
             
-            const updatedMessages = [...currentMessages, userMessage, assistantMessage];
+            const updatedMessages = [...messages, userMessage, assistantMessage];
             setMessages(updatedMessages);
             
             // 更新存储
@@ -1020,15 +1064,21 @@ const ChatPanel = () => {
   return (
     <div className="chat-panel">
       <div className="chat-header">
-        <button className="new-chat-btn" onClick={handleNewChat}>
-          新建对话
+        <button 
+          className="new-chat-btn"
+          onClick={handleNewChat}
+        >
+          新对话
         </button>
-        {currentChatTitle && (
-          <div className="current-chat-title">{currentChatTitle}</div>
-        )}
+        
+        <div className="current-chat-title">
+          {currentChatTitle || '新对话'}
+        </div>
+        
+        {/* 模型选择器组件，传递更新函数 */}
         <ModelSelector 
           selectedModel={selectedModel} 
-          setSelectedModel={setSelectedModel} 
+          setSelectedModel={handleModelChange} 
         />
       </div>
       
