@@ -1,6 +1,6 @@
 {
   "name": "webchat",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "浏览器侧边栏AI问答插件",
   "main": "index.js",
   "scripts": {
