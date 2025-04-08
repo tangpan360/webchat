@@ -18,6 +18,15 @@ function createToolsContainer() {
   toolsContainer.setAttribute('unselectable', 'on');
   toolsContainer.setAttribute('onselectstart', 'return false;');
   
+  // 添加阻止事件冒泡
+  toolsContainer.addEventListener('mousedown', function(e) {
+    e.stopPropagation();
+  });
+  
+  toolsContainer.addEventListener('click', function(e) {
+    e.stopPropagation();
+  });
+  
   // 添加到文档中
   document.body.appendChild(toolsContainer);
   
@@ -55,7 +64,7 @@ function updateToolsButtons() {
   
   // 添加自定义工具按钮
   customTools.forEach(tool => {
-    const button = createToolButton(tool.name, () => handleCustomToolClick(tool));
+    const button = createToolButton(tool.name, (event) => handleCustomToolClick(tool, event));
     toolsContainer.appendChild(button);
   });
 }
@@ -65,12 +74,21 @@ function createToolButton(text, clickHandler) {
   const button = document.createElement('button');
   button.className = 'webchat-tool-button';
   button.textContent = text;
-  button.addEventListener('click', clickHandler);
+  button.addEventListener('click', (event) => {
+    // 阻止事件冒泡，防止选中内容被取消
+    event.stopPropagation();
+    event.preventDefault();
+    clickHandler(event);
+  });
   return button;
 }
 
 // 复制按钮点击处理函数
 function handleCopyButtonClick(event) {
+  // 阻止事件冒泡和默认行为
+  event.stopPropagation();
+  event.preventDefault();
+  
   const selection = window.getSelection();
   if (!selection || !selection.toString().trim()) return;
   
@@ -118,7 +136,11 @@ function handleCopyButtonClick(event) {
 }
 
 // 引用按钮点击处理函数
-function handleQuoteButtonClick() {
+function handleQuoteButtonClick(event) {
+  // 阻止事件冒泡和默认行为
+  event.stopPropagation();
+  event.preventDefault();
+  
   const selection = window.getSelection();
   if (!selection || !selection.toString().trim()) return;
   
@@ -160,7 +182,11 @@ function handleQuoteButtonClick() {
 }
 
 // 自定义工具按钮点击处理函数
-function handleCustomToolClick(tool) {
+function handleCustomToolClick(tool, event) {
+  // 阻止事件冒泡和默认行为
+  event.stopPropagation();
+  event.preventDefault();
+  
   try {
     const selection = window.getSelection();
     if (!selection || !selection.toString().trim()) return;
@@ -290,9 +316,11 @@ function handleTextSelection(e) {
 
 // 检查是否点击了工具栏之外的区域
 function handleDocumentClick(e) {
+  // 如果工具栏存在，并且点击的不是工具栏或其子元素
   if (toolsContainer && e.target !== toolsContainer && !toolsContainer.contains(e.target)) {
     hideToolsContainer();
   }
+  // 注意：这里不添加阻止冒泡，因为这是文档级别的点击，我们需要让普通点击正常工作
 }
 
 // 监听来自扩展后台的消息
