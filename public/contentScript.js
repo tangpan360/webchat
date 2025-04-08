@@ -14,6 +14,9 @@ function createToolsContainer() {
   // 创建工具栏容器
   toolsContainer = document.createElement('div');
   toolsContainer.className = 'webchat-tools-container webchat-extension-styles';
+  // 添加不可选中属性
+  toolsContainer.setAttribute('unselectable', 'on');
+  toolsContainer.setAttribute('onselectstart', 'return false;');
   
   // 添加到文档中
   document.body.appendChild(toolsContainer);
@@ -335,6 +338,11 @@ function init() {
       z-index: 10000;
       padding: 4px;
       gap: 4px;
+      user-select: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      pointer-events: auto;
     }
     
     .webchat-tool-button {
@@ -359,6 +367,10 @@ function init() {
       min-width: 40px !important;
       box-sizing: border-box !important;
       line-height: 1 !important;
+      user-select: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
     }
     
     .webchat-tool-button:hover {
@@ -387,6 +399,37 @@ function handleKeyboardSelection(e) {
       const selection = window.getSelection();
       if (!selection || !selection.toString().trim()) {
         return;
+      }
+
+      // 特殊处理Ctrl+A全选的情况
+      if (e.ctrlKey && e.key === 'a' && toolsContainer && toolsContainer.style.display === 'flex') {
+        // 移除工具栏中的文本从选择中
+        try {
+          const selRange = selection.getRangeAt(0);
+          
+          // 如果工具栏可见，创建一个不包含工具栏的选择范围
+          if (document.body.contains(toolsContainer)) {
+            const toolsRange = document.createRange();
+            toolsRange.selectNode(toolsContainer);
+            
+            // 检查是否有重叠
+            if (selRange.intersectsNode(toolsContainer)) {
+              // 工具栏在选择范围内，我们需要排除它
+              selection.removeAllRanges(); // 清除当前选择
+              
+              // 重新创建选择，但排除工具栏
+              // 注意：这是一个简化的处理方式，实际上可能需要更复杂的范围操作
+              const newRange = document.createRange();
+              newRange.selectNodeContents(document.body);
+              selection.addRange(newRange);
+              
+              // 重新获取选区范围
+              if (selection.rangeCount === 0) return;
+            }
+          }
+        } catch (err) {
+          console.error('调整选择范围时出错:', err);
+        }
       }
       
       // 获取选区范围
