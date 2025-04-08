@@ -1416,4 +1416,87 @@ input[type="password"].placeholder-input.showing-placeholder::placeholder {
 
 .cancel-edit-btn:hover {
   background-color: #e0e0e0;
+}
+
+/* 工具栏开关样式 */
+.toolbar-toggle-container {
+  margin: 15px 0;
+  padding: 15px;
+  background-color: #f5f5f5;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+}
+
+.toolbar-toggle-label {
+  display: flex;
+  align-items: center;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.toolbar-toggle-label span {
+  margin-right: 10px;
+}
+
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 46px;
+  height: 24px;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: .4s;
+  border-radius: 24px;
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: .4s;
+  border-radius: 50%;
+}
+
+input:checked + .toggle-slider {
+  background-color: #1a73e8;
+}
+
+input:focus + .toggle-slider {
+  box-shadow: 0 0 1px #1a73e8;
+}
+
+input:checked + .toggle-slider:before {
+  transform: translateX(22px);
+}
+
+.toggle-status {
+  margin-left: 10px;
+  font-weight: normal;
+  font-size: 13px;
+  color: #666;
+}
+
+.toggle-description {
+  margin-top: 10px;
+  font-size: 13px;
+  color: #666;
+  padding-left: 5px;
 } 

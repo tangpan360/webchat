@@ -3,8 +3,13 @@ import {
   getCustomTools, 
   addCustomTool, 
   updateCustomTool, 
-  deleteCustomTool 
+  deleteCustomTool,
+  getStorage,
+  setStorage
 } from '../utils/storage';
+
+// 导入样式
+import '../assets/styles.css';
 
 const ToolsPanel = () => {
   const [tools, setTools] = useState([]);
@@ -12,15 +17,42 @@ const ToolsPanel = () => {
   const [newToolPrompt, setNewToolPrompt] = useState('');
   const [editingTool, setEditingTool] = useState(null);
   const [saveMessage, setSaveMessage] = useState({ visible: false, type: '', text: '' });
+  const [toolbarEnabled, setToolbarEnabled] = useState(true);
 
   // 加载自定义工具
   useEffect(() => {
     loadTools();
+    loadToolbarSettings();
   }, []);
 
   const loadTools = async () => {
     const customTools = await getCustomTools();
     setTools(customTools);
+  };
+
+  // 加载工具栏启用设置
+  const loadToolbarSettings = async () => {
+    const settings = await getStorage('toolbarSettings') || { enabled: true };
+    setToolbarEnabled(settings.enabled);
+  };
+
+  // 切换工具栏启用状态
+  const toggleToolbarEnabled = async () => {
+    const newState = !toolbarEnabled;
+    setToolbarEnabled(newState);
+    
+    // 保存设置
+    await setStorage('toolbarSettings', { enabled: newState });
+    
+    // 通知content script更新工具栏状态
+    if (typeof chrome !== 'undefined' && chrome.runtime) {
+      chrome.runtime.sendMessage({
+        type: 'updateToolbarSettings',
+        settings: { enabled: newState }
+      });
+    }
+    
+    showMessage('success', newState ? '划线工具栏已启用' : '划线工具栏已禁用');
   };
 
   // 添加新工具
@@ -142,6 +174,26 @@ const ToolsPanel = () => {
       </div>
       
       <div className="tools-content">
+        <div className="toolbar-toggle-container">
+          <label className="toolbar-toggle-label">
+            <span>划线工具栏:</span>
+            <div className="toggle-switch">
+              <input
+                type="checkbox"
+                checked={toolbarEnabled}
+                onChange={toggleToolbarEnabled}
+              />
+              <span className="toggle-slider"></span>
+            </div>
+            <span className="toggle-status">{toolbarEnabled ? '已启用' : '已禁用'}</span>
+          </label>
+          <p className="toggle-description">
+            {toolbarEnabled 
+              ? '选中网页文本时将显示工具栏' 
+              : '选中网页文本时不显示工具栏，但侧边栏功能仍可使用'}
+          </p>
+        </div>
+        
         <div className="tools-description">
           <p>在此处添加自定义划线工具，这些工具将显示在网页中选中文本时的工具栏上。</p>
           <p>每个工具可以自动执行"引用 + 提示词 + 发送"的操作组合。</p>
@@ -254,23 +306,21 @@ const ToolsPanel = () => {
                 onChange={(e) => setNewToolPrompt(e.target.value)}
                 placeholder="例如：将上述内容翻译成中文"
               />
-              <span className="form-hint">使用工具时，自动添加到引用内容后的提示文本</span>
+              <span className="form-hint">将与选中的文本一起发送到AI模型的指令</span>
             </div>
             
-            <div className="form-actions">
-              <button type="submit" className="add-tool-btn">
-                添加工具
-              </button>
+            <div className="form-action">
+              <button type="submit" className="add-tool-btn">添加工具</button>
             </div>
           </form>
         </div>
-        
-        {saveMessage.visible && (
-          <div className={`save-message ${saveMessage.type}`}>
-            {saveMessage.text}
-          </div>
-        )}
       </div>
+      
+      {saveMessage.visible && (
+        <div className={`save-message ${saveMessage.type}`}>
+          {saveMessage.text}
+        </div>
+      )}
     </div>
   );
 };

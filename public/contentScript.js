@@ -6,6 +6,7 @@
 // 工具栏及按钮元素
 let toolsContainer = null;
 let customTools = []; // 自定义工具列表
+let toolbarEnabled = true; // 工具栏启用状态
 
 // 创建工具栏
 function createToolsContainer() {
@@ -33,6 +34,9 @@ function createToolsContainer() {
   // 加载自定义工具
   loadCustomTools();
   
+  // 加载工具栏设置
+  loadToolbarSettings();
+  
   // 初始隐藏工具栏
   hideToolsContainer();
 }
@@ -44,6 +48,18 @@ function loadCustomTools() {
       if (response && response.tools) {
         customTools = response.tools;
         updateToolsButtons();
+      }
+    });
+  }
+}
+
+// 加载工具栏设置
+function loadToolbarSettings() {
+  if (typeof chrome !== 'undefined' && chrome.runtime && chrome.storage) {
+    chrome.storage.local.get(['toolbarSettings'], (result) => {
+      if (result && result.toolbarSettings) {
+        toolbarEnabled = result.toolbarSettings.enabled;
+        console.log('工具栏启用状态:', toolbarEnabled);
       }
     });
   }
@@ -237,6 +253,9 @@ function handleCustomToolClick(tool, event) {
 
 // 显示工具栏
 function showToolsContainer(x, y) {
+  // 如果工具栏被禁用，则不显示
+  if (!toolbarEnabled) return;
+  
   if (!toolsContainer) createToolsContainer();
   
   // 设置工具栏位置
@@ -255,6 +274,9 @@ function hideToolsContainer() {
 // 处理文本选择
 function handleTextSelection(e) {
   setTimeout(() => {
+    // 如果工具栏被禁用，则不显示
+    if (!toolbarEnabled) return;
+    
     const selection = window.getSelection();
     if (!selection || !selection.toString().trim()) {
       hideToolsContainer();
@@ -329,89 +351,28 @@ function handleExtensionMessages() {
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (message.type === 'updateCustomTools') {
         loadCustomTools();
+      } else if (message.type === 'updateToolbarSettings') {
+        // 更新工具栏启用状态
+        if (message.settings && message.settings.hasOwnProperty('enabled')) {
+          toolbarEnabled = message.settings.enabled;
+          console.log('工具栏启用状态已更新:', toolbarEnabled);
+          
+          // 如果禁用了工具栏，则隐藏
+          if (!toolbarEnabled) {
+            hideToolsContainer();
+          }
+        }
       }
       return true;
     });
   }
 }
 
-// 初始化
-function init() {
-  createToolsContainer();
-  
-  // 添加事件监听器
-  document.addEventListener('mouseup', handleTextSelection);
-  document.addEventListener('mousedown', handleDocumentClick);
-  document.addEventListener('keyup', handleKeyboardSelection);
-  document.addEventListener('selectionchange', () => {
-    const selection = window.getSelection();
-    if (!selection || !selection.toString().trim()) {
-      hideToolsContainer();
-    }
-  });
-  
-  // 监听扩展消息
-  handleExtensionMessages();
-  
-  // 添加样式
-  const style = document.createElement('style');
-  style.textContent = `
-    .webchat-tools-container {
-      position: absolute;
-      display: flex;
-      align-items: center;
-      background-color: #fff;
-      border-radius: 4px;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-      z-index: 10000;
-      padding: 4px;
-      gap: 4px;
-      user-select: none;
-      -webkit-user-select: none;
-      -moz-user-select: none;
-      -ms-user-select: none;
-      pointer-events: auto;
-    }
-    
-    .webchat-tool-button {
-      padding: 4px 8px;
-      background: #1a73e8;
-      color: white;
-      border: none;
-      border-radius: 3px;
-      font-size: 12px;
-      cursor: pointer;
-      font-family: system-ui, -apple-system, sans-serif;
-      min-width: auto !important;
-      max-width: none !important;
-      width: auto !important;
-      height: auto !important;
-      line-height: normal !important;
-      margin: 0 !important;
-      transition: background-color 0.3s;
-      display: inline-flex;
-      justify-content: center;
-      align-items: center;
-      min-width: 40px !important;
-      box-sizing: border-box !important;
-      line-height: 1 !important;
-      user-select: none;
-      -webkit-user-select: none;
-      -moz-user-select: none;
-      -ms-user-select: none;
-    }
-    
-    .webchat-tool-button:hover {
-      background: #0d66d0;
-    }
-  `;
-  document.head.appendChild(style);
-  
-  console.log('WebChat 划线工具栏已初始化');
-}
-
 // 处理键盘选择文本
 function handleKeyboardSelection(e) {
+  // 如果工具栏被禁用，则不显示
+  if (!toolbarEnabled) return;
+  
   // 检测常见的文本选择组合键
   const isTextSelectionKey = (
     // Ctrl+A (全选)
@@ -512,6 +473,81 @@ function handleKeyboardSelection(e) {
       showToolsContainer(x, y);
     }, 10);
   }
+}
+
+// 初始化
+function init() {
+  createToolsContainer();
+  
+  // 添加事件监听器
+  document.addEventListener('mouseup', handleTextSelection);
+  document.addEventListener('mousedown', handleDocumentClick);
+  document.addEventListener('keyup', handleKeyboardSelection);
+  document.addEventListener('selectionchange', () => {
+    const selection = window.getSelection();
+    if (!selection || !selection.toString().trim()) {
+      hideToolsContainer();
+    }
+  });
+  
+  // 监听扩展消息
+  handleExtensionMessages();
+  
+  // 添加样式
+  const style = document.createElement('style');
+  style.textContent = `
+    .webchat-tools-container {
+      position: absolute;
+      display: flex;
+      align-items: center;
+      background-color: #fff;
+      border-radius: 4px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+      z-index: 10000;
+      padding: 4px;
+      gap: 4px;
+      user-select: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      pointer-events: auto;
+    }
+    
+    .webchat-tool-button {
+      padding: 4px 8px;
+      background: #1a73e8;
+      color: white;
+      border: none;
+      border-radius: 3px;
+      font-size: 12px;
+      cursor: pointer;
+      font-family: system-ui, -apple-system, sans-serif;
+      min-width: auto !important;
+      max-width: none !important;
+      width: auto !important;
+      height: auto !important;
+      line-height: normal !important;
+      margin: 0 !important;
+      transition: background-color 0.3s;
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      min-width: 40px !important;
+      box-sizing: border-box !important;
+      line-height: 1 !important;
+      user-select: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+    }
+    
+    .webchat-tool-button:hover {
+      background: #0d66d0;
+    }
+  `;
+  document.head.appendChild(style);
+  
+  console.log('WebChat 划线工具栏已初始化');
 }
 
 // 当文档加载完成后初始化

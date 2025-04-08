@@ -5,8 +5,16 @@ chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
 chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === "install") {
     console.log("WebChat扩展已安装");
+    // 初始化工具栏设置
+    chrome.storage.local.set({ 'toolbarSettings': { enabled: true } });
   } else if (details.reason === "update") {
     console.log(`WebChat扩展已更新到版本 ${chrome.runtime.getManifest().version}`);
+    // 确保工具栏设置存在
+    chrome.storage.local.get(['toolbarSettings'], (result) => {
+      if (!result.toolbarSettings) {
+        chrome.storage.local.set({ 'toolbarSettings': { enabled: true } });
+      }
+    });
   }
 });
 
@@ -15,6 +23,9 @@ let quotedTexts = [];
 
 // 存储自定义工具
 let customTools = [];
+
+// 工具栏设置
+let toolbarSettings = { enabled: true };
 
 // 状态变量
 let pendingActions = []; // 存储等待执行的操作
@@ -25,9 +36,12 @@ let lastActionData = null; // 上次执行的工具操作数据
 const ACTION_DEBOUNCE_TIME = 1000; // 防抖时间，单位毫秒
 
 // 初始化存储
-chrome.storage.local.get(['customTools'], (result) => {
+chrome.storage.local.get(['customTools', 'toolbarSettings'], (result) => {
   if (result.customTools) {
     customTools = result.customTools;
+  }
+  if (result.toolbarSettings) {
+    toolbarSettings = result.toolbarSettings;
   }
 });
 
@@ -154,6 +168,28 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
     });
   }
+
+  // 更新工具栏设置
+  if (message.type === "updateToolbarSettings") {
+    if (message.settings && message.settings.hasOwnProperty('enabled')) {
+      toolbarSettings = message.settings;
+      
+      // 保存设置到存储
+      chrome.storage.local.set({ 'toolbarSettings': toolbarSettings });
+      
+      // 通知所有内容脚本更新工具栏状态
+      chrome.tabs.query({}, (tabs) => {
+        tabs.forEach(tab => {
+          chrome.tabs.sendMessage(tab.id, { 
+            type: "updateToolbarSettings",
+            settings: toolbarSettings
+          }).catch(() => {}); // 忽略不支持的标签页错误
+        });
+      });
+      
+      console.log('工具栏设置已更新:', toolbarSettings);
+    }
+  }
   
   // 执行工具操作（自动发送引用+提示词）
   if (message.type === "executeToolAction") {
@@ -198,34 +234,35 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         // 设置较短的超时，如果侧边栏没有响应就强制发送
         setTimeout(() => {
           if (pendingActions.includes(actionMessage)) {
-            console.log('侧边栏打开超时，强制发送工具操作');
+            console.log('侧边栏未及时准备好，强制发送工具操作');
             chrome.runtime.sendMessage(actionMessage);
-            // 从队列中移除
-            pendingActions = pendingActions.filter(a => a !== actionMessage);
+            pendingActions = pendingActions.filter(pa => pa !== actionMessage);
           }
-        }, 800); // 减少到800ms
-      } 
-      // 侧边栏可能已经打开但我们不知道其状态，尝试直接发送
+        }, 1500);
+      }
+      // 侧边栏未打开，尝试打开并加入待处理队列
       else {
-        console.log('侧边栏状态未知，尝试直接发送工具操作');
-        chrome.runtime.sendMessage(actionMessage);
+        console.log('侧边栏未打开，尝试打开并添加到待处理队列');
+        sidePanelOpening = true;
+        pendingActions.push(actionMessage);
+        
+        if (sender.tab) {
+          chrome.sidePanel.open({ windowId: sender.tab.windowId });
+        }
+        
+        // 设置超时，如果侧边栏没有响应就强制发送
+        setTimeout(() => {
+          if (pendingActions.includes(actionMessage)) {
+            console.log('侧边栏未准备好，强制发送工具操作');
+            chrome.runtime.sendMessage(actionMessage);
+            pendingActions = pendingActions.filter(pa => pa !== actionMessage);
+          }
+        }, 2000);
       }
     } catch (error) {
-      console.error('执行工具操作出错:', error);
+      console.error('处理工具操作请求时出错:', error);
     }
   }
   
-  // 处理工具操作接收确认
-  if (message.type === "toolActionReceived") {
-    console.log('工具操作已被侧边栏接收');
-  }
-  
-  // 检查工具操作是否已接收
-  if (message.type === "checkToolActionReceived") {
-    // 如果侧边栏尚未收到原始消息，则重新发送
-    chrome.runtime.sendMessage({
-      type: "executeToolAction",
-      data: message.data
-    });
-  }
+  return true; // 允许异步响应
 }); 
