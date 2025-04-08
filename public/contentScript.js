@@ -212,9 +212,12 @@ function handleCustomToolClick(tool, event) {
     // 获取当前时间作为引用ID
     const quoteId = Date.now().toString();
     
+    // 为操作生成唯一ID
+    const actionId = quoteId + Math.random().toString(36).substring(2, 8);
+    
     // 引用选中内容并立即发送工具操作请求
     if (typeof chrome !== 'undefined' && chrome.runtime) {
-      console.log('处理工具点击:', tool.name);
+      console.log('处理工具点击:', tool.name, 'ID:', actionId);
       
       // 首先添加引用
       chrome.runtime.sendMessage({
@@ -236,7 +239,8 @@ function handleCustomToolClick(tool, event) {
         type: 'executeToolAction',
         data: {
           text: selectedText,
-          prompt: tool.prompt
+          prompt: tool.prompt,
+          actionId: actionId // 添加唯一ID
         }
       });
     }

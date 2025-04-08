@@ -25,9 +25,6 @@ const ChatPanel = () => {
   const lastEditedIndexRef = useRef(null); // 存储最后编辑的消息索引
   // 添加新的引用，用于实时获取当前选中的模型
   const currentModelRef = useRef(selectedModel);
-  // 添加工具操作防抖控制
-  const lastToolActionRef = useRef({ timestamp: 0, data: null });
-  const TOOL_ACTION_DEBOUNCE_TIME = 1000; // 防抖时间，单位毫秒
   const restoreScrollPositionRef = useRef(null); // 添加新的引用，用于记录滚动位置
 
   // 跟踪selectedModel的变化，更新引用值
@@ -112,7 +109,9 @@ const ChatPanel = () => {
     const handleToolAction = async (message) => {
       try {
         if (message.type === 'executeToolAction' && message.data) {
-          console.log('ChatPanel收到工具操作请求');
+          // 获取操作ID
+          const operationId = message.data.actionId || 'unknown';
+          console.log('ChatPanel收到工具操作请求', operationId);
           
           // 如果当前已经在加载或者生成中，不处理新的工具操作
           if (isLoading || isGenerating) {
@@ -120,28 +119,21 @@ const ChatPanel = () => {
             return;
           }
           
-          // 防抖检查：如果是相同内容的操作且时间间隔小于设定值，则忽略
-          const currentTime = Date.now();
-          const lastToolAction = lastToolActionRef.current;
-          if (lastToolAction.data && 
-              lastToolAction.data.text === message.data.text && 
-              lastToolAction.data.prompt === message.data.prompt && 
-              currentTime - lastToolAction.timestamp < TOOL_ACTION_DEBOUNCE_TIME) {
-            console.log('忽略重复的工具操作请求（防抖）');
+          // 使用操作ID进行去重
+          const processedActions = JSON.parse(sessionStorage.getItem('processedActions') || '[]');
+          if (operationId !== 'unknown' && processedActions.includes(operationId)) {
+            console.log('该操作ID已处理过，跳过:', operationId);
             return;
           }
           
-          // 更新上次操作的时间戳和数据
-          lastToolActionRef.current = {
-            timestamp: currentTime,
-            data: {...message.data}
-          };
-          
-          // 立即确认收到消息
-          if (typeof chrome !== 'undefined' && chrome.runtime) {
-            chrome.runtime.sendMessage({
-              type: 'toolActionReceived'
-            });
+          // 将当前操作ID添加到已处理列表
+          if (operationId !== 'unknown') {
+            processedActions.push(operationId);
+            // 只保留最近的20个ID
+            if (processedActions.length > 20) {
+              processedActions.shift();
+            }
+            sessionStorage.setItem('processedActions', JSON.stringify(processedActions));
           }
           
           // 确保有效的对话ID并尝试加载完整的对话历史
@@ -209,6 +201,8 @@ const ChatPanel = () => {
         setIsLoading(false);
         setIsGenerating(false);
         setStreamingMessage(null);
+      } finally {
+        console.log('消息处理完成，状态已重置');
       }
     };
 
@@ -221,18 +215,7 @@ const ChatPanel = () => {
         // 发送接收确认
         if (sendResponse) {
           sendResponse({ received: true });
-        } else if (typeof chrome !== 'undefined' && chrome.runtime) {
-          // 如果没有sendResponse，尝试直接发送确认消息
-          chrome.runtime.sendMessage({
-            type: 'toolActionReceived'
-          });
         }
-      } else if (message.type === 'checkToolActionReceived') {
-        // 如果收到检查消息但之前没有收到executeToolAction，则处理它
-        handleToolAction({
-          type: 'executeToolAction',
-          data: message.data
-        });
       }
       
       return true; // 表示将异步回复

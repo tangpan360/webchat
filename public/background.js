@@ -31,9 +31,6 @@ let toolbarSettings = { enabled: true };
 let pendingActions = []; // 存储等待执行的操作
 let sidePanelReady = false; // 侧边栏是否已准备好
 let sidePanelOpening = false; // 侧边栏是否正在打开中
-let lastActionTimestamp = 0; // 上次执行工具操作的时间戳
-let lastActionData = null; // 上次执行的工具操作数据
-const ACTION_DEBOUNCE_TIME = 1000; // 防抖时间，单位毫秒
 
 // 初始化存储
 chrome.storage.local.get(['customTools', 'toolbarSettings'], (result) => {
@@ -200,21 +197,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return;
       }
       
-      // 防抖检查：如果是相同内容的操作且时间间隔小于设定值，则忽略
-      const currentTime = Date.now();
-      if (lastActionData && 
-          lastActionData.text === message.data.text && 
-          lastActionData.prompt === message.data.prompt && 
-          currentTime - lastActionTimestamp < ACTION_DEBOUNCE_TIME) {
-        console.log('忽略重复的工具操作请求（防抖）');
-        return;
+      // 生成唯一操作ID（如果没有）
+      if (!message.data.actionId) {
+        message.data.actionId = Date.now().toString() + Math.random().toString(36).substring(2, 8);
+        console.log('为工具操作生成ID:', message.data.actionId);
       }
       
-      // 更新上次操作的时间戳和数据
-      lastActionTimestamp = currentTime;
-      lastActionData = {...message.data};
-      
-      console.log('background收到工具操作请求:', message.data.prompt);
+      console.log('background收到工具操作请求:', message.data.prompt, 'ID:', message.data.actionId);
       
       const actionMessage = {
         type: "executeToolAction",
@@ -223,45 +212,40 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       
       // 如果侧边栏已准备好，直接发送
       if (sidePanelReady) {
-        console.log('侧边栏已准备好，直接发送工具操作');
+        console.log('侧边栏已准备好，直接发送工具操作', message.data.actionId);
         chrome.runtime.sendMessage(actionMessage);
       } 
-      // 如果侧边栏正在打开中，添加到待处理队列
-      else if (sidePanelOpening) {
-        console.log('侧边栏正在打开中，添加到待处理队列');
-        pendingActions.push(actionMessage);
-        
-        // 设置较短的超时，如果侧边栏没有响应就强制发送
-        setTimeout(() => {
-          if (pendingActions.includes(actionMessage)) {
-            console.log('侧边栏未及时准备好，强制发送工具操作');
-            chrome.runtime.sendMessage(actionMessage);
-            pendingActions = pendingActions.filter(pa => pa !== actionMessage);
-          }
-        }, 1500);
-      }
-      // 侧边栏未打开，尝试打开并加入待处理队列
+      // 侧边栏未打开或正在打开中，添加到待处理队列
       else {
-        console.log('侧边栏未打开，尝试打开并添加到待处理队列');
-        sidePanelOpening = true;
-        pendingActions.push(actionMessage);
-        
-        if (sender.tab) {
-          chrome.sidePanel.open({ windowId: sender.tab.windowId });
+        // 如果侧边栏未打开，尝试打开
+        if (!sidePanelOpening) {
+          console.log('侧边栏未打开，正在打开侧边栏');
+          sidePanelOpening = true;
+          if (sender.tab) {
+            chrome.sidePanel.open({ windowId: sender.tab.windowId });
+          }
+        } else {
+          console.log('侧边栏正在打开中');
         }
         
-        // 设置超时，如果侧边栏没有响应就强制发送
-        setTimeout(() => {
-          if (pendingActions.includes(actionMessage)) {
-            console.log('侧边栏未准备好，强制发送工具操作');
-            chrome.runtime.sendMessage(actionMessage);
-            pendingActions = pendingActions.filter(pa => pa !== actionMessage);
-          }
-        }, 2000);
+        // 将消息添加到队列（确保队列中没有重复的相同消息）
+        // 先检查队列中是否已经有相同ID的消息
+        const existingIndex = pendingActions.findIndex(
+          act => act.data && act.data.actionId === message.data.actionId
+        );
+        
+        if (existingIndex >= 0) {
+          console.log('队列中已存在相同ID的消息，跳过添加');
+        } else {
+          console.log('将工具操作添加到待处理队列', message.data.actionId);
+          pendingActions.push(actionMessage);
+        }
       }
     } catch (error) {
       console.error('处理工具操作请求时出错:', error);
     }
+    
+    return true;
   }
   
   return true; // 允许异步响应
