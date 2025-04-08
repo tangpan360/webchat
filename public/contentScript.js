@@ -236,18 +236,50 @@ function handleTextSelection(e) {
     const range = selection.getRangeAt(0);
     const rect = range.getBoundingClientRect();
     
-    // 计算工具栏的位置（在选区下方的中间位置）
-    // 宽度会根据按钮数量动态变化
-    let x = window.scrollX + rect.left;
+    // 获取视口尺寸和滚动位置
+    const viewportHeight = window.innerHeight;
+    const viewportWidth = window.innerWidth;
+    const scrollX = window.scrollX;
+    const scrollY = window.scrollY;
+    
+    // 判断选中区域相对于视口的位置
+    const rectTop = rect.top; // 选区顶部相对于视口顶部的位置
+    const rectBottom = rect.bottom; // 选区底部相对于视口顶部的位置
+    const isTopVisible = rectTop >= 0 && rectTop < viewportHeight;
+    const isBottomVisible = rectBottom >= 0 && rectBottom < viewportHeight;
+    
+    // 计算工具栏的基础水平位置（居中或靠左）
+    let x = scrollX + rect.left;
     if (rect.width > 100) {
       x += (rect.width / 2) - 50; // 大致居中
     }
-    let y = window.scrollY + rect.bottom + 10; // 在选区下方10px处
     
-    // 确保工具栏不会超出视口右侧
-    const maxX = window.innerWidth - 100; // 假设最小宽度100px
+    // 确保工具栏不会超出视口左右边界
+    const maxX = viewportWidth - 100; // 假设最小宽度100px
     if (x > maxX) x = maxX - 5;
     if (x < 0) x = 5;
+    
+    let y;
+    
+    // 根据不同情况计算工具栏的垂直位置
+    if (isBottomVisible) {
+      // 情况1和3：下部可见，显示在下部
+      y = scrollY + rectBottom + 10;
+    } else if (isTopVisible) {
+      // 情况2：上部可见，下部不可见，显示在上部
+      y = scrollY + rectTop - 40; // 减去工具栏的估计高度和一些间距
+    } else {
+      // 情况4：上部和下部都不可见（选中内容太长，中间可见）
+      // 在视口中间显示工具栏
+      y = scrollY + (viewportHeight / 2);
+    }
+    
+    // 确保工具栏在视口内可见
+    if (y < scrollY) {
+      y = scrollY + 10; // 如果太靠上，则放在页面顶部附近
+    } else if (y > scrollY + viewportHeight - 50) {
+      y = scrollY + viewportHeight - 50; // 如果太靠下，则放在页面底部附近
+    }
     
     showToolsContainer(x, y);
   }, 10);
