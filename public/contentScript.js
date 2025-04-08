@@ -42,6 +42,10 @@ function updateToolsButtons() {
   // 清空现有按钮
   toolsContainer.innerHTML = '';
   
+  // 添加默认的复制按钮
+  const copyButton = createToolButton('复制', handleCopyButtonClick);
+  toolsContainer.appendChild(copyButton);
+  
   // 添加默认的引用按钮
   const quoteButton = createToolButton('引用', handleQuoteButtonClick);
   toolsContainer.appendChild(quoteButton);
@@ -60,6 +64,54 @@ function createToolButton(text, clickHandler) {
   button.textContent = text;
   button.addEventListener('click', clickHandler);
   return button;
+}
+
+// 复制按钮点击处理函数
+function handleCopyButtonClick(event) {
+  const selection = window.getSelection();
+  if (!selection || !selection.toString().trim()) return;
+  
+  const selectedText = selection.toString().trim();
+  const button = event.target;
+  const originalText = button.textContent;
+  const originalBackground = button.style.background || '#1a73e8';
+  const buttonWidth = button.offsetWidth;
+  const buttonHeight = button.offsetHeight;
+  
+  // 尝试复制文本到剪贴板
+  navigator.clipboard.writeText(selectedText)
+    .then(() => {
+      // 复制成功，显示对号并变绿
+      button.style.width = `${buttonWidth}px`;
+      button.style.height = `${buttonHeight}px`;
+      button.innerHTML = '<span style="font-size: 12px; line-height: 1;">✓</span>';
+      button.style.background = '#52c41a';
+      
+      // 1秒后恢复原样
+      setTimeout(() => {
+        button.textContent = originalText;
+        button.style.background = originalBackground;
+        button.style.width = '';
+        button.style.height = '';
+      }, 1000);
+    })
+    .catch(error => {
+      // 复制失败，显示错号并变红
+      button.style.width = `${buttonWidth}px`;
+      button.style.height = `${buttonHeight}px`;
+      button.innerHTML = '<span style="font-size: 12px; line-height: 1;">✗</span>';
+      button.style.background = '#f44336';
+      
+      // 1秒后恢复原样
+      setTimeout(() => {
+        button.textContent = originalText;
+        button.style.background = originalBackground;
+        button.style.width = '';
+        button.style.height = '';
+      }, 1000);
+      
+      console.error('复制到剪贴板失败:', error);
+    });
 }
 
 // 引用按钮点击处理函数
@@ -267,6 +319,13 @@ function init() {
       height: auto !important;
       line-height: normal !important;
       margin: 0 !important;
+      transition: background-color 0.3s;
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      min-width: 40px !important;
+      box-sizing: border-box !important;
+      line-height: 1 !important;
     }
     
     .webchat-tool-button:hover {
