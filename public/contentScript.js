@@ -311,6 +311,7 @@ function init() {
   // 添加事件监听器
   document.addEventListener('mouseup', handleTextSelection);
   document.addEventListener('mousedown', handleDocumentClick);
+  document.addEventListener('keyup', handleKeyboardSelection);
   document.addEventListener('selectionchange', () => {
     const selection = window.getSelection();
     if (!selection || !selection.toString().trim()) {
@@ -367,6 +368,79 @@ function init() {
   document.head.appendChild(style);
   
   console.log('WebChat 划线工具栏已初始化');
+}
+
+// 处理键盘选择文本
+function handleKeyboardSelection(e) {
+  // 检测常见的文本选择组合键
+  const isTextSelectionKey = (
+    // Ctrl+A (全选)
+    (e.ctrlKey && e.key === 'a') ||
+    // Shift+方向键
+    (e.shiftKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight')) ||
+    // Shift+Home/End
+    (e.shiftKey && (e.key === 'Home' || e.key === 'End'))
+  );
+  
+  if (isTextSelectionKey) {
+    setTimeout(() => {
+      const selection = window.getSelection();
+      if (!selection || !selection.toString().trim()) {
+        return;
+      }
+      
+      // 获取选区范围
+      if (selection.rangeCount === 0) return;
+      const range = selection.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+      
+      // 获取视口尺寸和滚动位置
+      const viewportHeight = window.innerHeight;
+      const viewportWidth = window.innerWidth;
+      const scrollX = window.scrollX;
+      const scrollY = window.scrollY;
+      
+      // 判断选中区域相对于视口的位置
+      const rectTop = rect.top;
+      const rectBottom = rect.bottom;
+      const isTopVisible = rectTop >= 0 && rectTop < viewportHeight;
+      const isBottomVisible = rectBottom >= 0 && rectBottom < viewportHeight;
+      
+      // 计算工具栏的水平位置
+      let x = scrollX + rect.left;
+      if (rect.width > 100) {
+        x += (rect.width / 2) - 50;
+      }
+      
+      // 确保不超出视口边界
+      const maxX = viewportWidth - 100;
+      if (x > maxX) x = maxX - 5;
+      if (x < 0) x = 5;
+      
+      let y;
+      
+      // 根据不同情况计算垂直位置
+      if (isBottomVisible) {
+        // 下部可见，显示在下部
+        y = scrollY + rectBottom + 10;
+      } else if (isTopVisible) {
+        // 上部可见，显示在上部
+        y = scrollY + rectTop - 40;
+      } else {
+        // 中间可见或全部不可见，显示在视口中间
+        y = scrollY + (viewportHeight / 2);
+      }
+      
+      // 确保在视口内可见
+      if (y < scrollY) {
+        y = scrollY + 10;
+      } else if (y > scrollY + viewportHeight - 50) {
+        y = scrollY + viewportHeight - 50;
+      }
+      
+      showToolsContainer(x, y);
+    }, 10);
+  }
 }
 
 // 当文档加载完成后初始化
