@@ -4,6 +4,7 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
+import remarkGfm from 'remark-gfm';
 import 'katex/dist/katex.min.css';
 
 // 添加自定义KaTeX样式
@@ -87,6 +88,40 @@ const katexStyles = `
   margin-top: 8px;
   margin-bottom: 8px;
   padding-left: 24px;
+}
+
+/* 表格样式 */
+.message-text table {
+  border-collapse: collapse;
+  margin: 12px 0;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  display: block;
+}
+
+.message-text thead {
+  background-color: #f5f7fa;
+  border-bottom: 2px solid #e0e6ed;
+}
+
+.message-text th, .message-text td {
+  padding: 8px 12px;
+  border: 1px solid #e0e6ed;
+  text-align: left;
+}
+
+.message-text th {
+  font-weight: 600;
+  color: #4a5568;
+}
+
+.message-text tr:nth-child(even) {
+  background-color: #f9fafb;
+}
+
+.message-text tr:hover {
+  background-color: #f1f5f9;
 }
 `;
 
@@ -490,7 +525,7 @@ const MessageList = forwardRef(({
           <div className="message-content">
             <div className="message-text">
               <ReactMarkdown
-                remarkPlugins={[remarkMath]}
+                remarkPlugins={[remarkMath, remarkGfm]}
                 rehypePlugins={[
                   [rehypeKatex, { 
                     strict: false, 
@@ -539,6 +574,10 @@ const MessageList = forwardRef(({
                   // 自定义引用块渲染
                   blockquote: ({ node, ...props }) => (
                     <blockquote className="markdown-quote" {...props} />
+                  ),
+                  // 自定义表格渲染
+                  table: ({ node, ...props }) => (
+                    <table className="markdown-table" {...props} />
                   ),
                 }}
               >
