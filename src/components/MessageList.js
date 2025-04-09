@@ -6,6 +6,90 @@ import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
 
+// 添加自定义KaTeX样式
+const katexStyles = `
+.katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 6px 0;
+  margin: 8px 0;
+  display: block;
+  text-align: center;
+}
+
+.katex {
+  font-size: 1.1em;
+}
+
+/* 确保行间公式独立成段 */
+.message-text p .katex-display {
+  display: block;
+  margin: 12px auto;
+}
+
+/* 行内公式样式 */
+.message-text p .katex-inline {
+  display: inline-block;
+  vertical-align: middle;
+  padding: 0 2px;
+}
+
+/* 防止公式被挤压 */
+.message-text p {
+  overflow-wrap: break-word;
+  word-break: break-word;
+  hyphens: auto;
+}
+
+/* Markdown排版样式调整 */
+.message-text h1, 
+.message-text h2, 
+.message-text h3, 
+.message-text h4, 
+.message-text h5, 
+.message-text h6 {
+  margin-top: 16px;
+  margin-bottom: 8px;
+}
+
+.message-text p {
+  margin-top: 8px;
+  margin-bottom: 8px;
+}
+
+.message-text p + h1,
+.message-text p + h2,
+.message-text p + h3,
+.message-text p + h4 {
+  margin-top: 12px;
+}
+
+.message-text hr {
+  margin: 8px 0;
+  border: 0;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.message-text hr + h1,
+.message-text hr + h2,
+.message-text hr + h3 {
+  margin-top: 12px;
+}
+
+.message-text h3 + p,
+.message-text h2 + p,
+.message-text h1 + p {
+  margin-top: 6px;
+}
+
+.message-text ul, 
+.message-text ol {
+  margin-top: 8px;
+  margin-bottom: 8px;
+  padding-left: 24px;
+}
+`;
+
 const MessageList = forwardRef(({ 
   messages, 
   onEditMessage,
@@ -264,20 +348,32 @@ const MessageList = forwardRef(({
   const preprocessMarkdown = (content) => {
     if (!content) return '';
     
+    // 首先处理已经存在的 $ 和 $$ 格式的公式，避免重复处理
+    let processed = content;
+    
     // 替换行内公式 \( \) 为 $ $
-    let processed = content.replace(/\\\(\s*(.*?)\s*\\\)/g, '$ $1 $');
+    processed = processed.replace(/\\\(\s*([\s\S]*?)\s*\\\)/g, '$ $1 $');
     
-    // 替换行间公式 \[ \] 为 $$ $$
-    processed = processed.replace(/\\\[\s*(.*?)\s*\\\)/g, '$$ $1 $$');
-    
-    // 替换 [ ] 中的公式（不带反斜杠）
-    processed = processed.replace(/\[\s*(.*?)\s*\]/g, (match, formula) => {
-      // 检查是否看起来像公式（包含数学符号）
-      if (/[\^_{}\\]/.test(formula)) {
-        return `$$ ${formula} $$`;
-      }
-      return match; // 不是公式，保留原样
+    // 替换行间公式 \[ \] 为 $$ $$，确保前后有足够的换行符
+    processed = processed.replace(/\\\[\s*([\s\S]*?)\s*\\\]/g, (match, formula) => {
+      // 确保公式前后有空行，使其成为独立段落
+      return '\n\n$$\n' + formula.trim() + '\n$$\n\n';
     });
+    
+    // 确保多行公式正确渲染
+    processed = processed.replace(/\$\$([\s\S]*?)\$\$/g, (match, formula) => {
+      // 不论公式是否包含换行，都确保它被处理为独立段落
+      return '\n\n$$\n' + formula.trim() + '\n$$\n\n';
+    });
+    
+    // 处理连续段落间可能出现的多余空行
+    processed = processed.replace(/\n{3,}/g, '\n\n');
+    
+    // 处理连续的标题和分隔符
+    processed = processed.replace(/---\s*\n+\s*###/g, '---\n###');
+    
+    // 确保分段标记和公式之间的正确空间
+    processed = processed.replace(/(\n\n)(#+\s+)/g, '$1$2');
     
     return processed;
   };
@@ -301,6 +397,7 @@ const MessageList = forwardRef(({
       ref={messageListRef}
       style={{ overflow: 'auto', height: '100%' }} // 确保容器有明确的高度和滚动行为
     >
+      <style>{katexStyles}</style>
       {messages.map((message, index) => (
         <div 
           key={index} 
@@ -395,7 +492,20 @@ const MessageList = forwardRef(({
               <ReactMarkdown
                 remarkPlugins={[remarkMath]}
                 rehypePlugins={[
-                  [rehypeKatex, { strict: false, throwOnError: false, output: 'html' }]
+                  [rehypeKatex, { 
+                    strict: false, 
+                    throwOnError: false, 
+                    output: 'html',
+                    trust: true,
+                    macros: {
+                      "\\mathbb": "\\mathbf",
+                      "\\R": "\\mathbb{R}",
+                      "\\N": "\\mathbb{N}"
+                    },
+                    maxSize: 500,
+                    maxExpand: 1000,
+                    displayMode: true
+                  }]
                 ]}
                 components={{
                   code: ({ node, inline, className, children, ...props }) => {
