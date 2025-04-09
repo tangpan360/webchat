@@ -415,6 +415,26 @@ const ChatPanel = () => {
   // 处理发送消息逻辑
   const handleSend = async (overrideInput = null) => {
     try {
+      const messageContent = overrideInput !== null ? overrideInput : input;
+      
+      // 如果消息为空则不处理
+      if (!messageContent.trim()) {
+        return;
+      }
+      
+      // 立即重置滚动位置函数，确保用户流畅的体验
+      if (restoreScrollPositionRef.current) {
+        restoreScrollPositionRef.current();
+        restoreScrollPositionRef.current = null;
+      }
+      
+      // 清空输入框并重置高度
+      if (!overrideInput) {
+        setInput('');
+        // 重置输入框高度
+        resetTextareaHeight();
+      }
+      
       // 检查API设置
       const settings = await getStorage('settings');
       const defaultApiUrl = 'https://api.openai.com/v1/chat/completions';
@@ -434,8 +454,6 @@ const ChatPanel = () => {
       
       // 清除之前的错误
       setApiError('');
-      
-      const messageContent = overrideInput !== null ? overrideInput : input;
       
       if ((!messageContent.trim() && quotes.length === 0) || isLoading || isGenerating) {
         console.log('发送条件不满足或当前正在处理其他请求');
@@ -517,7 +535,6 @@ const ChatPanel = () => {
             };
             
             // 清空输入框和引用内容
-            setInput('');
             setQuotes([]);
             
             // 如果使用的是Chrome扩展环境，通知后台清空引用内容
@@ -626,7 +643,6 @@ const ChatPanel = () => {
       };
       
       // 清空输入框和引用内容
-      setInput('');
       setQuotes([]);
       
       // 如果使用的是Chrome扩展环境，通知后台清空引用内容
@@ -1165,6 +1181,14 @@ const ChatPanel = () => {
     textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px';
   };
 
+  // 添加新函数用于重置输入框高度
+  const resetTextareaHeight = () => {
+    const textarea = document.querySelector('.chat-input');
+    if (textarea) {
+      textarea.style.height = 'auto';
+    }
+  };
+
   return (
     <div className="chat-panel">
       <div className="chat-header">
@@ -1295,13 +1319,17 @@ const ChatPanel = () => {
                 e.preventDefault();
                 if (!isGenerating) {
                   handleSend();
+                  resetTextareaHeight(); // 添加重置高度的调用
                 }
               }
             }}
           />
           <button 
             className={`${isGenerating ? 'stop-btn' : 'send-btn'}`}
-            onClick={isGenerating ? handleStopGeneration : () => handleSend()}
+            onClick={isGenerating ? handleStopGeneration : () => {
+              handleSend();
+              resetTextareaHeight(); // 添加重置高度的调用
+            }}
             disabled={isLoading && !isGenerating}
           >
             {isGenerating ? '停止' : (isLoading ? '发送中...' : '发送')}
