@@ -14,7 +14,7 @@ const katexStyles = `
   overflow-y: hidden;
   padding: 6px 0;
   margin: 8px 0;
-  display: block;
+  display: block !important;
   text-align: center;
 }
 
@@ -24,13 +24,13 @@ const katexStyles = `
 
 /* 确保行间公式独立成段 */
 .message-text p .katex-display {
-  display: block;
+  display: block !important;
   margin: 12px auto;
 }
 
 /* 行内公式样式 */
 .message-text p .katex-inline {
-  display: inline-block;
+  display: inline-block !important;
   vertical-align: middle;
   padding: 0 2px;
 }
@@ -98,6 +98,17 @@ const katexStyles = `
   max-width: 100%;
   overflow-x: auto;
   display: block;
+  font-size: 14px;
+  table-layout: fixed;
+}
+
+.message-text .table-container {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  margin: 12px 0;
+  border-radius: 4px;
+  border: none;
 }
 
 .message-text thead {
@@ -109,6 +120,9 @@ const katexStyles = `
   padding: 8px 12px;
   border: 1px solid #e0e6ed;
   text-align: left;
+  word-break: break-word;
+  min-width: 80px;
+  max-width: 300px;
 }
 
 .message-text th {
@@ -122,6 +136,12 @@ const katexStyles = `
 
 .message-text tr:hover {
   background-color: #f1f5f9;
+}
+
+/* 确保公式和表格不冲突 */
+.message-text .katex-display + table,
+.message-text table + .katex-display {
+  margin-top: 16px;
 }
 `;
 
@@ -525,7 +545,10 @@ const MessageList = forwardRef(({
           <div className="message-content">
             <div className="message-text">
               <ReactMarkdown
-                remarkPlugins={[remarkMath, remarkGfm]}
+                remarkPlugins={[
+                  remarkMath,
+                  [remarkGfm, { tablePipeAlign: true, tableCellPadding: true }]
+                ]}
                 rehypePlugins={[
                   [rehypeKatex, { 
                     strict: false, 
@@ -577,7 +600,9 @@ const MessageList = forwardRef(({
                   ),
                   // 自定义表格渲染
                   table: ({ node, ...props }) => (
-                    <table className="markdown-table" {...props} />
+                    <div className="table-container">
+                      <table className="markdown-table" {...props} />
+                    </div>
                   ),
                 }}
               >
