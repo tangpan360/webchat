@@ -853,7 +853,7 @@ const ChatPanel = () => {
     setEditingMessageContent(message.content);
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     // 记录当前编辑的消息索引
     const targetScrollIndex = editingMessageIndex;
     
@@ -862,18 +862,26 @@ const ChatPanel = () => {
       const restoreScroll = messageListRef.current?.preserveScrollPosition();
       
       // 检查消息内容是否真的有变化
-      const originalMessage = allMessages[editingMessageIndex];
+      const originalMessage = messages[editingMessageIndex];
       if (originalMessage.content !== editingMessageContent) {
         // 构建更新后的消息数组
-        const updatedMessages = [...allMessages];
+        const updatedMessages = [...messages];
         updatedMessages[editingMessageIndex] = {
           ...updatedMessages[editingMessageIndex],
           content: editingMessageContent
         };
         
-        // 更新本地消息并存储到 localStorage
-        setAllMessages(updatedMessages);
-        saveMessagesToStorage(chatId, updatedMessages);
+        // 更新本地消息
+        setMessages(updatedMessages);
+        
+        // 保存到存储
+        if (currentChatId) {
+          const chats = await getStorage('chats') || {};
+          if (chats[currentChatId]) {
+            chats[currentChatId].messages = updatedMessages;
+            await saveChat(chats);
+          }
+        }
       }
       
       // 重置编辑状态
@@ -1185,14 +1193,32 @@ const ChatPanel = () => {
         overflow: 'hidden'
       }}>
         {editingMessageIndex !== null ? (
-          <div className="message-edit-container">
+          <div className="message-edit-container" style={{
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden'
+          }}>
             <textarea
               className="message-edit-textarea"
               value={editingMessageContent}
               onChange={(e) => setEditingMessageContent(e.target.value)}
+              style={{
+                flex: 1,
+                minHeight: 'calc(100% - 50px)',
+                resize: 'none',
+                padding: '10px',
+                fontSize: '14px',
+                border: '1px solid #ccc',
+                borderRadius: '5px'
+              }}
               autoFocus
             />
-            <div className="message-edit-actions">
+            <div className="message-edit-actions" style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              padding: '10px 0'
+            }}>
               <button 
                 className="cancel-edit-btn"
                 onClick={handleCancelEdit}
@@ -1202,6 +1228,7 @@ const ChatPanel = () => {
               <button 
                 className="save-edit-btn"
                 onClick={handleSaveEdit}
+                style={{ marginLeft: '10px' }}
               >
                 保存
               </button>
