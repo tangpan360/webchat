@@ -143,6 +143,63 @@ const katexStyles = `
 .message-text table + .katex-display {
   margin-top: 16px;
 }
+
+/* 图片展示样式 */
+.message-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.message-image {
+  border-radius: 8px;
+  overflow: hidden;
+  max-width: 100%;
+  cursor: pointer;
+  position: relative;
+}
+
+.message-image img {
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+  transition: transform 0.2s;
+}
+
+.message-image img:hover {
+  transform: scale(1.02);
+}
+
+.message-image-preview {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.8);
+  z-index: 1000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.message-image-preview img {
+  max-width: 90%;
+  max-height: 90%;
+  object-fit: contain;
+}
+
+.message-image-preview-close {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  color: white;
+  font-size: 24px;
+  cursor: pointer;
+  background: none;
+  border: none;
+}
 `;
 
 const MessageList = forwardRef(({ 
@@ -163,6 +220,7 @@ const MessageList = forwardRef(({
   const isUserNearBottomRef = useRef(true);
   const userHasScrolledUpRef = useRef(false);
   const lastScrollTopRef = useRef(0);
+  const [previewImage, setPreviewImage] = useState(null);
   
   // 暴露滚动方法给父组件
   useImperativeHandle(ref, () => ({
@@ -198,102 +256,199 @@ const MessageList = forwardRef(({
       
       // 找到视口中间位置的消息索引
       Object.entries(messageRefs.current).forEach(([index, element]) => {
-        if (!element) return;
         const rect = element.getBoundingClientRect();
-        // 如果元素在视口中，并且中点在可视区域最中间
         if (rect.top <= midpoint && rect.bottom >= midpoint) {
-          visibleMessageIndex = parseInt(index, 10);
+          visibleMessageIndex = parseInt(index);
         }
       });
       
-      // 记录可见元素的顶部偏移量，用于精确恢复位置
-      let topElementOffset = 0;
-      if (visibleMessageIndex !== -1 && messageRefs.current[visibleMessageIndex]) {
-        const element = messageRefs.current[visibleMessageIndex];
-        topElementOffset = element.getBoundingClientRect().top - containerRect.top;
-      }
-      
-      // 返回一个函数，用于在DOM更新后恢复滚动位置
+      // 返回一个函数，用于恢复滚动位置
       return () => {
-        if (!messageListRef.current) return;
-        
-        // 使用多次尝试的方式确保滚动位置恢复
-        const attemptScroll = (attempt = 0) => {
-          if (attempt > 5) return; // 最多尝试5次
-          
-          // 直接设置滚动位置
+        // 尝试保持原滚动位置
+        if (messageListRef.current) {
           messageListRef.current.scrollTop = currentScrollTop;
           
-          // 检查是否滚动成功
-          if (Math.abs(messageListRef.current.scrollTop - currentScrollTop) < 50) {
-            return; // 滚动成功
-          }
-          
-          // 如果直接设置scrollTop失败，尝试使用备用方法
-          if (visibleMessageIndex !== -1 && messageRefs.current[visibleMessageIndex]) {
-            const element = messageRefs.current[visibleMessageIndex];
-            element.scrollIntoView({
-              behavior: 'auto',
-              block: 'start'
-            });
+          // 如果滚动位置没有正确恢复，使用备选方案
+          if (visibleMessageIndex !== -1) {
+            const attemptScroll = (attempt = 0) => {
+              if (messageRefs.current[visibleMessageIndex] && attempt < 5) {
+                try {
+                  messageRefs.current[visibleMessageIndex].scrollIntoView({
+                    block: 'center',
+                    inline: 'nearest',
+                    behavior: 'auto'
+                  });
+                } catch (e) {
+                  console.error('尝试滚动到可见消息失败:', e);
+                  
+                  // 重试几次
+                  setTimeout(() => attemptScroll(attempt + 1), 50);
+                }
+              }
+            };
             
-            // 调整到精确位置
-            if (topElementOffset && messageListRef.current) {
-              // 延迟一帧再调整精确位置
-              requestAnimationFrame(() => {
-                const newRect = element.getBoundingClientRect();
-                const containerRect = messageListRef.current.getBoundingClientRect();
-                const currentOffset = newRect.top - containerRect.top;
-                messageListRef.current.scrollTop += (currentOffset - topElementOffset);
-              });
-            }
+            // 尝试滚动到之前可见的消息
+            setTimeout(attemptScroll, 10);
           }
-          
-          // 如果还没成功，稍后再试
-          requestAnimationFrame(() => {
-            attemptScroll(attempt + 1);
-          });
-        };
-        
-        // 开始尝试滚动恢复
-        attemptScroll();
+        }
       };
     }
   }));
   
-  // 检测用户是否已经滚动到接近底部
+  // 渲染消息内容
+  const renderMessageContent = (message) => {
+    if (typeof message.content === 'string') {
+      // 处理纯文本消息
+      return (
+        <div className="message-text">
+          <style>{katexStyles}</style>
+          <ReactMarkdown
+            remarkPlugins={[remarkMath, remarkGfm]}
+            rehypePlugins={[rehypeKatex]}
+            components={{
+              code({node, inline, className, children, ...props}) {
+                const match = /language-(\w+)/.exec(className || '');
+                return !inline && match ? (
+                  <SyntaxHighlighter
+                    style={vscDarkPlus}
+                    language={match[1]}
+                    PreTag="div"
+                    {...props}
+                  >
+                    {String(children).replace(/\n$/, '')}
+                  </SyntaxHighlighter>
+                ) : (
+                  <code className={className} {...props}>
+                    {children}
+                  </code>
+                );
+              },
+              table({node, ...props}) {
+                return (
+                  <div className="table-container">
+                    <table {...props} />
+                  </div>
+                );
+              }
+            }}
+          >
+            {preprocessMarkdown(message.content)}
+          </ReactMarkdown>
+        </div>
+      );
+    } else if (Array.isArray(message.content)) {
+      // 处理多模态消息（包含文本和图片）
+      return (
+        <div className="message-multimodal">
+          {message.content.map((item, index) => {
+            if (item.type === 'text') {
+              // 渲染文本内容
+              return (
+                <div className="message-text" key={`text-${index}`}>
+                  <style>{katexStyles}</style>
+                  <ReactMarkdown
+                    remarkPlugins={[remarkMath, remarkGfm]}
+                    rehypePlugins={[rehypeKatex]}
+                    components={{
+                      code({node, inline, className, children, ...props}) {
+                        const match = /language-(\w+)/.exec(className || '');
+                        return !inline && match ? (
+                          <SyntaxHighlighter
+                            style={vscDarkPlus}
+                            language={match[1]}
+                            PreTag="div"
+                            {...props}
+                          >
+                            {String(children).replace(/\n$/, '')}
+                          </SyntaxHighlighter>
+                        ) : (
+                          <code className={className} {...props}>
+                            {children}
+                          </code>
+                        );
+                      },
+                      table({node, ...props}) {
+                        return (
+                          <div className="table-container">
+                            <table {...props} />
+                          </div>
+                        );
+                      }
+                    }}
+                  >
+                    {preprocessMarkdown(item.text)}
+                  </ReactMarkdown>
+                </div>
+              );
+            } else if (item.type === 'image_url') {
+              // 渲染图片内容
+              return (
+                <div className="message-image" key={`image-${index}`} onClick={() => setPreviewImage(item.image_url.url)}>
+                  <img src={item.image_url.url} alt="用户上传的图片" />
+                </div>
+              );
+            }
+            return null;
+          })}
+        </div>
+      );
+    }
+    return <div className="message-text">无法显示的消息格式</div>;
+  };
+
+  // 检查是否靠近底部
   const checkIfUserNearBottom = () => {
     if (!messageListRef.current) return true;
     
     const container = messageListRef.current;
-    const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
-    isUserNearBottomRef.current = isNearBottom;
+    const threshold = 150; // 像素阈值，如果用户滚动到距离底部小于此值，认为他们在底部附近
     
-    // 如果用户滚动到底部，重置向上滚动标记
-    if (isNearBottom) {
-      userHasScrolledUpRef.current = false;
-    }
+    const isNearBottom = 
+      container.scrollHeight - container.scrollTop - container.clientHeight < threshold;
+    
+    isUserNearBottomRef.current = isNearBottom;
     
     return isNearBottom;
   };
   
-  // 强制滚动到底部
+  // 滚动到底部的基本函数
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
   
-  // 智能滚动判断
+  // 智能滚动函数，考虑用户滚动行为
   const smartScrollToBottom = () => {
-    // 如果用户没有主动向上滚动，则始终滚动到底部
-    if (!userHasScrolledUpRef.current) {
-      scrollToBottom();
-    } 
-    // 如果用户已向上滚动，但当前在底部附近，也滚动
-    else if (isUserNearBottomRef.current) {
+    // 如果用户靠近底部或未滚动，自动滚动到最新消息
+    if (isUserNearBottomRef.current || !userHasScrolledUpRef.current) {
       scrollToBottom();
     }
   };
-  
+
+  // 处理滚动事件，检测用户滚动行为
+  const handleScroll = () => {
+    if (!messageListRef.current) return;
+    
+    const currentScrollTop = messageListRef.current.scrollTop;
+    
+    // 如果向上滚动，标记用户已主动滚动
+    if (currentScrollTop < lastScrollTopRef.current) {
+      userHasScrolledUpRef.current = true;
+    }
+    
+    // 如果滚动到底部，重置向上滚动标记
+    if (checkIfUserNearBottom()) {
+      userHasScrolledUpRef.current = false;
+    }
+    
+    // 保存当前滚动位置
+    lastScrollTopRef.current = currentScrollTop;
+  };
+
+  // 处理图片预览关闭
+  const handleClosePreview = () => {
+    setPreviewImage(null);
+  };
+
   // 处理消息变化
   useEffect(() => {
     const isNewMessage = messages.length > prevMessagesLengthRef.current;
@@ -399,38 +554,31 @@ const MessageList = forwardRef(({
     });
   };
 
-  // 处理公式格式，将 \( \) 和 \[ \] 转为 $ $ 和 $$ $$
+  // 预处理Markdown内容，确保正确渲染
   const preprocessMarkdown = (content) => {
     if (!content) return '';
     
-    // 首先处理已经存在的 $ 和 $$ 格式的公式，避免重复处理
-    let processed = content;
+    // 如果content不是字符串（可能是数组），则返回空字符串
+    if (typeof content !== 'string') {
+      return '';
+    }
     
-    // 替换行内公式 \( \) 为 $ $
-    processed = processed.replace(/\\\(\s*([\s\S]*?)\s*\\\)/g, '$ $1 $');
+    // 确保代码块中的内容被正确转义和渲染
+    let processedContent = content
+      // 修复围栏代码块的渲染
+      .replace(/```([a-zA-Z0-9]*)\n([\s\S]*?)```/g, (match, lang, code) => {
+        // 确保代码块中的内容被正确转义
+        return '```' + lang + '\n' + code + '```';
+      })
+      // 修复行内代码的渲染
+      .replace(/`([^`]+)`/g, (match, code) => {
+        return '`' + code + '`';
+      });
+      
+    // 确保引用块被正确渲染
+    processedContent = ensureQuoteRendering(processedContent);
     
-    // 替换行间公式 \[ \] 为 $$ $$，确保前后有足够的换行符
-    processed = processed.replace(/\\\[\s*([\s\S]*?)\s*\\\]/g, (match, formula) => {
-      // 确保公式前后有空行，使其成为独立段落
-      return '\n\n$$\n' + formula.trim() + '\n$$\n\n';
-    });
-    
-    // 确保多行公式正确渲染
-    processed = processed.replace(/\$\$([\s\S]*?)\$\$/g, (match, formula) => {
-      // 不论公式是否包含换行，都确保它被处理为独立段落
-      return '\n\n$$\n' + formula.trim() + '\n$$\n\n';
-    });
-    
-    // 处理连续段落间可能出现的多余空行
-    processed = processed.replace(/\n{3,}/g, '\n\n');
-    
-    // 处理连续的标题和分隔符
-    processed = processed.replace(/---\s*\n+\s*###/g, '---\n###');
-    
-    // 确保分段标记和公式之间的正确空间
-    processed = processed.replace(/(\n\n)(#+\s+)/g, '$1$2');
-    
-    return processed;
+    return processedContent;
   };
 
   // 确保引用内容正确渲染的函数
@@ -446,182 +594,98 @@ const MessageList = forwardRef(({
     return processedContent;
   };
 
+  // 渲染消息列表
   return (
     <div 
       className="message-list" 
       ref={messageListRef}
-      style={{ overflow: 'auto', height: '100%' }} // 确保容器有明确的高度和滚动行为
+      onScroll={handleScroll}
     >
-      <style>{katexStyles}</style>
-      {messages.map((message, index) => (
-        <div 
-          key={index} 
-          className={`message ${message.role}`}
-          ref={el => messageRefs.current[index] = el}
-        >
-          <div className="message-header">
-            <div className="message-role">
-              {message.role === 'user' ? '你' : (message.model || 'AI')}
-            </div>
-            
-            <div className="message-actions">
-              {deleteConfirmIndex === index ? (
-                // 删除确认按钮
-                <div className="delete-confirm-actions">
-                  <span className="delete-confirm-text">确定删除?</span>
-                  <button 
-                    className="confirm-btn yes" 
-                    onClick={() => handleConfirmDelete(index)}
-                  >
-                    是
-                  </button>
-                  <button 
-                    className="confirm-btn no" 
-                    onClick={() => setDeleteConfirmIndex(null)}
-                  >
-                    否
-                  </button>
-                </div>
-              ) : (
-                // 正常操作按钮
-                <>
-                  <button 
-                    className={`message-action-btn ${copiedIndex === index ? 'copied' : ''}`}
-                    onClick={() => handleCopy(index, message.content)}
-                    title={copiedIndex === index ? "已复制" : "复制"}
-                  >
-                    {copiedIndex === index ? (
-                      // 复制成功图标
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M20 6L9 17l-5-5" />
-                      </svg>
-                    ) : (
-                      // 默认复制图标
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                      </svg>
-                    )}
-                  </button>
-                  
-                  <button 
-                    className="message-action-btn" 
-                    onClick={() => onEditMessage && onEditMessage(index, message)}
-                    title="编辑"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
-                    </svg>
-                  </button>
-                  
-                  <button 
-                    className="message-action-btn" 
-                    onClick={() => handleRegenerateClick(index)}
-                    title="重新生成"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M23 4v6h-6"></path>
-                      <path d="M1 20v-6h6"></path>
-                      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"></path>
-                      <path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"></path>
-                    </svg>
-                  </button>
-                  
-                  <button 
-                    className="message-action-btn delete" 
-                    onClick={() => handleDeleteClick(index)}
-                    title="删除"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M3 6h18"></path>
-                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                    </svg>
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-          
-          <div className="message-content">
-            <div className="message-text">
-              <ReactMarkdown
-                remarkPlugins={[
-                  remarkMath,
-                  [remarkGfm, { tablePipeAlign: true, tableCellPadding: true }]
-                ]}
-                rehypePlugins={[
-                  [rehypeKatex, { 
-                    strict: false, 
-                    throwOnError: false, 
-                    output: 'html',
-                    trust: true,
-                    macros: {
-                      "\\mathbb": "\\mathbf",
-                      "\\R": "\\mathbb{R}",
-                      "\\N": "\\mathbb{N}"
-                    },
-                    maxSize: 500,
-                    maxExpand: 1000,
-                    displayMode: true
-                  }]
-                ]}
-                components={{
-                  code: ({ node, inline, className, children, ...props }) => {
-                    const match = /language-(\w+)/.exec(className || '');
-                    return !inline && match ? (
-                      <div className="code-block">
-                        <div className="code-header">
-                          <span className="code-language">{match[1]}</span>
-                          <button 
-                            className="copy-button"
-                            onClick={() => copyToClipboard(String(children).replace(/\n$/, ''))}
-                          >
-                            复制
-                          </button>
-                        </div>
-                        <SyntaxHighlighter
-                          style={vscDarkPlus}
-                          language={match[1]}
-                          PreTag="div"
-                          {...props}
+      {messages.map((message, index) => {
+        const isUser = message.role === 'user';
+        const isSystem = message.role === 'system';
+        const isLastMessage = index === messages.length - 1;
+        
+        return (
+          <div
+            key={index}
+            className={`message ${isUser ? 'user-message' : ''} ${isSystem ? 'system-message' : ''}`}
+            ref={el => { messageRefs.current[index] = el; }}
+          >
+            <div className="message-header">
+              <div className="message-role">
+                {isUser ? '用户' : (isSystem ? '系统' : '助手')}
+                {message.model && !isUser && !isSystem && (
+                  <span className="message-model">
+                    {message.model}
+                  </span>
+                )}
+              </div>
+              {!isSystem && (
+                <div className="message-actions">
+                  {!isUser && (
+                    <button
+                      className="copy-btn"
+                      onClick={() => handleCopy(index, message.content)}
+                      title="复制内容"
+                    >
+                      {copiedIndex === index ? '已复制' : '复制'}
+                    </button>
+                  )}
+                  {!isLastMessage && (
+                    <button
+                      className="edit-btn"
+                      onClick={() => onEditMessage(index, message)}
+                      title={isUser ? "编辑消息" : "编辑成默认回复"}
+                    >
+                      编辑
+                    </button>
+                  )}
+                  {!isLastMessage && (
+                    <>
+                      {deleteConfirmIndex === index ? (
+                        <button
+                          className="delete-confirm-btn"
+                          onClick={() => handleConfirmDelete(index)}
                         >
-                          {String(children).replace(/\n$/, '')}
-                        </SyntaxHighlighter>
-                      </div>
-                    ) : (
-                      <code className={className} {...props}>
-                        {children}
-                      </code>
-                    );
-                  },
-                  // 自定义引用块渲染
-                  blockquote: ({ node, ...props }) => (
-                    <blockquote className="markdown-quote" {...props} />
-                  ),
-                  // 自定义表格渲染
-                  table: ({ node, ...props }) => (
-                    <div className="table-container">
-                      <table className="markdown-table" {...props} />
-                    </div>
-                  ),
-                }}
-              >
-                {preprocessMarkdown(message.content)}
-              </ReactMarkdown>
-              
-              {/* 在最后AI消息并且正在生成回复时显示加载指示器 */}
-              {isGenerating && index === messages.length - 1 && message.role === 'assistant' && (
-                <div className="message-loading">
-                  <span className="dot"></span>
-                  <span className="dot"></span>
-                  <span className="dot"></span>
+                          确认删除
+                        </button>
+                      ) : (
+                        <button
+                          className="delete-btn"
+                          onClick={() => handleDeleteClick(index)}
+                        >
+                          删除
+                        </button>
+                      )}
+                    </>
+                  )}
+                  {isUser && !isLastMessage && (
+                    <button
+                      className="regenerate-btn"
+                      onClick={() => handleRegenerateClick(index)}
+                    >
+                      重新生成
+                    </button>
+                  )}
                 </div>
               )}
             </div>
+            <div className="message-content">
+              {renderMessageContent(message)}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
       <div ref={messagesEndRef} />
+      
+      {/* 图片预览弹窗 */}
+      {previewImage && (
+        <div className="message-image-preview" onClick={handleClosePreview}>
+          <img src={previewImage} alt="预览图片" onClick={(e) => e.stopPropagation()} />
+          <button className="message-image-preview-close" onClick={handleClosePreview}>×</button>
+        </div>
+      )}
     </div>
   );
 });

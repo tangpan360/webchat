@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getStorage, saveChat } from '../utils/storage';
-import { sendMessage } from '../api/chatApi';
+import { sendMessage, fileToBase64 } from '../api/chatApi';
 import MessageList from './MessageList';
 import ModelSelector from './ModelSelector';
 
@@ -19,6 +19,10 @@ const ChatPanel = () => {
   const [quotes, setQuotes] = useState([]); // 存储引用内容
   const [currentChatTitle, setCurrentChatTitle] = useState('');
   const [apiError, setApiError] = useState('');
+  const [uploadedImages, setUploadedImages] = useState([]);  // 存储上传的图片
+  const fileInputRef = useRef(null);  // 文件输入引用
+  const dropAreaRef = useRef(null);  // 拖放区域引用
+  
   const abortControllerRef = useRef(null);
   const lastChatIdRef = useRef(null); // 用于跟踪上一次的聊天ID
   const messageListRef = useRef(null); // 添加对MessageList组件的引用
@@ -41,6 +45,204 @@ const ChatPanel = () => {
     }
     setCurrentChatId(chatId);
   };
+
+  // 处理图片上传
+  const handleImageUpload = async (event) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+    
+    // 处理每个选中的文件
+    await Promise.all(
+      Array.from(files).map(async (file) => {
+        // 验证文件类型
+        if (!file.type.startsWith('image/')) {
+          console.error('不支持的文件类型:', file.type);
+          return;
+        }
+        
+        try {
+          // 将图片转换为Base64字符串
+          const base64String = await fileToBase64(file);
+          
+          // 添加到上传图片列表
+          setUploadedImages(prev => [...prev, { 
+            id: Date.now() + Math.random().toString(36).substr(2, 9),
+            base64: base64String,
+            name: file.name
+          }]);
+        } catch (error) {
+          console.error('处理图片失败:', error);
+        }
+      })
+    );
+    
+    // 清空文件输入，允许重复选择相同文件
+    event.target.value = '';
+  };
+  
+  // 处理图片删除
+  const handleImageDelete = (imageId) => {
+    setUploadedImages(prev => prev.filter(img => img.id !== imageId));
+  };
+  
+  // 处理拖拽事件
+  const handleDragOver = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    event.dataTransfer.dropEffect = 'copy';
+  };
+  
+  // 处理拖放事件
+  const handleDrop = async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    const items = event.dataTransfer.items;
+    const files = event.dataTransfer.files;
+    
+    // 处理文件拖放
+    if (files && files.length > 0) {
+      // 将FileList转换为数组并过滤出图片文件
+      const imageFiles = Array.from(files).filter(file => file.type.startsWith('image/'));
+      
+      if (imageFiles.length === 0) return;
+      
+      // 处理每个图片文件
+      await Promise.all(
+        imageFiles.map(async (file) => {
+          try {
+            // 将图片转换为Base64字符串
+            const base64String = await fileToBase64(file);
+            
+            // 添加到上传图片列表
+            setUploadedImages(prev => [...prev, { 
+              id: Date.now() + Math.random().toString(36).substr(2, 9),
+              base64: base64String,
+              name: file.name
+            }]);
+          } catch (error) {
+            console.error('处理拖放图片失败:', error);
+          }
+        })
+      );
+    } 
+    // 处理从网页拖放的图片
+    else if (items && items.length > 0) {
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        
+        // 处理拖拽的图片URL
+        if (item.kind === 'string' && item.type.match('^text/uri-list')) {
+          item.getAsString(async (url) => {
+            try {
+              // 验证URL是否为图片
+              const response = await fetch(url);
+              const contentType = response.headers.get('content-type');
+              
+              if (contentType && contentType.startsWith('image/')) {
+                const blob = await response.blob();
+                const base64String = await fileToBase64(blob);
+                
+                // 从URL中提取文件名
+                const urlParts = url.split('/');
+                const fileName = urlParts[urlParts.length - 1].split('?')[0] || 'image.jpg';
+                
+                // 添加到上传图片列表
+                setUploadedImages(prev => [...prev, { 
+                  id: Date.now() + Math.random().toString(36).substr(2, 9),
+                  base64: base64String,
+                  name: fileName
+                }]);
+              }
+            } catch (error) {
+              console.error('处理网页拖放图片失败:', error);
+            }
+          });
+        }
+        // 处理拖拽的图片文件
+        else if (item.kind === 'file' && item.type.startsWith('image/')) {
+          const file = item.getAsFile();
+          
+          try {
+            // 将图片转换为Base64字符串
+            const base64String = await fileToBase64(file);
+            
+            // 添加到上传图片列表
+            setUploadedImages(prev => [...prev, { 
+              id: Date.now() + Math.random().toString(36).substr(2, 9),
+              base64: base64String,
+              name: file.name
+            }]);
+          } catch (error) {
+            console.error('处理拖放图片文件失败:', error);
+          }
+        }
+      }
+    }
+  };
+  
+  // 添加拖放事件监听器
+  useEffect(() => {
+    const handleDocumentDrop = (event) => {
+      // 如果不是拖放到指定区域，阻止默认行为
+      if (!event.target.closest('.chat-panel') && !event.target.closest('.chat-input-container')) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+      
+      // 如果在我们的区域内，让主拖放处理函数处理
+      handleDrop(event);
+    };
+    
+    const handleDocumentDragOver = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      
+      // 设置拖放效果为复制
+      event.dataTransfer.dropEffect = 'copy';
+      
+      // 添加拖放区高亮效果
+      if (dropAreaRef.current) {
+        dropAreaRef.current.classList.add('drag-over');
+      }
+    };
+    
+    const handleDocumentDragLeave = (event) => {
+      // 仅当拖拽离开整个文档区域时移除高亮
+      const rect = document.body.getBoundingClientRect();
+      const isLeavingDocument = 
+        event.clientX <= rect.left ||
+        event.clientX >= rect.right ||
+        event.clientY <= rect.top ||
+        event.clientY >= rect.bottom;
+      
+      if (isLeavingDocument && dropAreaRef.current) {
+        dropAreaRef.current.classList.remove('drag-over');
+      }
+    };
+    
+    const handleDocumentDragEnd = () => {
+      // 拖拽结束时移除高亮
+      if (dropAreaRef.current) {
+        dropAreaRef.current.classList.remove('drag-over');
+      }
+    };
+    
+    // 添加全局拖放事件监听器
+    document.addEventListener('dragover', handleDocumentDragOver);
+    document.addEventListener('drop', handleDocumentDrop);
+    document.addEventListener('dragleave', handleDocumentDragLeave);
+    document.addEventListener('dragend', handleDocumentDragEnd);
+    
+    return () => {
+      // 移除全局拖放事件监听器
+      document.removeEventListener('dragover', handleDocumentDragOver);
+      document.removeEventListener('drop', handleDocumentDrop);
+      document.removeEventListener('dragleave', handleDocumentDragLeave);
+      document.removeEventListener('dragend', handleDocumentDragEnd);
+    };
+  }, []);
 
   // 尝试从localStorage恢复currentChatId
   useEffect(() => {
@@ -417,8 +619,8 @@ const ChatPanel = () => {
     try {
       const messageContent = overrideInput !== null ? overrideInput : input;
       
-      // 如果消息为空则不处理
-      if (!messageContent.trim()) {
+      // 如果消息为空且没有图片则不处理
+      if (!messageContent.trim() && uploadedImages.length === 0) {
         return;
       }
       
@@ -455,7 +657,7 @@ const ChatPanel = () => {
       // 清除之前的错误
       setApiError('');
       
-      if ((!messageContent.trim() && quotes.length === 0) || isLoading || isGenerating) {
+      if ((!messageContent.trim() && quotes.length === 0 && uploadedImages.length === 0) || isLoading || isGenerating) {
         console.log('发送条件不满足或当前正在处理其他请求');
         return;
       }
@@ -463,25 +665,68 @@ const ChatPanel = () => {
       // 使用当前最新的模型设置，确保模型选择后立即使用
       const currentModel = currentModelRef.current;
       
-      // 组合引用内容和用户输入
-      let fullContent = '';
+      // 准备消息内容
+      let messageContentForAPI;
       
-      // 先添加引用内容
-      if (quotes.length > 0) {
-        quotes.forEach((quote) => {
-          // 每段引用内容前只添加 > 符号
-          fullContent += `> ${quote.text}\n\n`;
-        });
+      // 如果有图片，则准备多模态消息格式
+      if (uploadedImages.length > 0) {
+        messageContentForAPI = [];
         
-        if (messageContent.trim()) {
-          // 用户输入直接跟在引用内容后面，不需要添加标识
-          fullContent += messageContent;
+        // 先添加文本内容
+        if (messageContent.trim() || quotes.length > 0) {
+          let fullTextContent = '';
+          
+          // 添加引用内容
+          if (quotes.length > 0) {
+            quotes.forEach((quote) => {
+              fullTextContent += `> ${quote.text}\n\n`;
+            });
+          }
+          
+          // 添加用户输入
+          if (messageContent.trim()) {
+            fullTextContent += messageContent;
+          }
+          
+          messageContentForAPI.push({
+            type: 'text',
+            text: fullTextContent
+          });
         }
+        
+        // 添加所有图片
+        uploadedImages.forEach(image => {
+          messageContentForAPI.push({
+            type: 'image_url',
+            image_url: {
+              url: image.base64,
+              detail: 'high'
+            }
+          });
+        });
       } else {
-        fullContent = messageContent;
+        // 组合引用内容和用户输入为纯文本格式
+        let fullContent = '';
+        
+        // 先添加引用内容
+        if (quotes.length > 0) {
+          quotes.forEach((quote) => {
+            // 每段引用内容前只添加 > 符号
+            fullContent += `> ${quote.text}\n\n`;
+          });
+          
+          if (messageContent.trim()) {
+            // 用户输入直接跟在引用内容后面，不需要添加标识
+            fullContent += messageContent;
+          }
+        } else {
+          fullContent = messageContent;
+        }
+        
+        messageContentForAPI = fullContent;
       }
       
-      console.log('准备发送消息:', fullContent.substring(0, 50) + (fullContent.length > 50 ? '...' : ''));
+      console.log('准备发送消息类型:', typeof messageContentForAPI === 'string' ? '纯文本' : '多模态');
       
       // 确保我们有一个有效的对话ID
       if (!currentChatId) {
@@ -531,11 +776,13 @@ const ChatPanel = () => {
             
             const userMessage = {
               role: 'user',
-              content: fullContent
+              content: messageContentForAPI
             };
             
             // 清空输入框和引用内容
             setQuotes([]);
+            // 清空上传的图片
+            setUploadedImages([]);
             
             // 如果使用的是Chrome扩展环境，通知后台清空引用内容
             if (typeof chrome !== 'undefined' && chrome.runtime) {
@@ -577,7 +824,7 @@ const ChatPanel = () => {
               };
               
               const assistantMessage = await sendMessage(
-                fullContent, 
+                messageContentForAPI, 
                 currentModel, // 使用当前引用的模型值
                 currentMessages, // 使用加载的历史消息 
                 onChunkReceived, 
@@ -599,7 +846,7 @@ const ChatPanel = () => {
                 if (updatedChats[currentChatId]) {
                   // 如果是第一次发送消息，自动更新对话标题
                   if (updatedChats[currentChatId].messages.length === 0 && updatedChats[currentChatId].title === '新对话') {
-                    const newTitle = generateChatTitle(messageContent);
+                    const newTitle = generateChatTitle(typeof messageContentForAPI === 'string' ? messageContentForAPI : '图片问答');
                     updatedChats[currentChatId].title = newTitle;
                     setCurrentChatTitle(newTitle);
                   }
@@ -613,37 +860,47 @@ const ChatPanel = () => {
               // 确保重置状态
               setIsLoading(false);
               setIsGenerating(false);
-              setStreamingMessage(null);
-              abortControllerRef.current = null;
-              
-              // 强制滚动到底部，不受用户滚动状态影响
-              if (messageListRef.current) {
-                messageListRef.current.resetUserScrollState();
-              }
-              
-              return; // 结束执行，跳过下面的普通处理流程
             } catch (error) {
-              // 处理错误...
-              console.error('发送消息失败:', error);
+              console.error('API请求失败:', error);
+              
+              setMessages(prev => {
+                // 移除最后一条用户消息，避免重复
+                const messages = prev.filter((_, index) => index !== prev.length - 1);
+                // 添加错误消息
+                return [...messages, {
+                  role: 'assistant',
+                  content: `调用API失败: ${error.message}`
+                }];
+              });
+              
+              // 重置状态
               setIsLoading(false);
               setIsGenerating(false);
               setStreamingMessage(null);
-              abortControllerRef.current = null;
-              return; // 结束执行
+              
+              if (abortControllerRef.current) {
+                abortControllerRef.current = null;
+              }
             }
+            return;
           }
         } catch (error) {
-          console.error('加载对话历史失败:', error);
+          console.error('加载对话数据失败:', error);
         }
       }
       
+      // 准备当前消息列表
+      const currentMessages = messages;
+      
+      // 准备用户消息
       const userMessage = {
         role: 'user',
-        content: fullContent
+        content: messageContentForAPI
       };
       
-      // 清空输入框和引用内容
+      // 清空引用内容和上传的图片
       setQuotes([]);
+      setUploadedImages([]);
       
       // 如果使用的是Chrome扩展环境，通知后台清空引用内容
       if (typeof chrome !== 'undefined' && chrome.runtime) {
@@ -652,45 +909,25 @@ const ChatPanel = () => {
         });
       }
       
-      // 将新消息添加到当前消息列表
-      const updatedMessages = [...messages, userMessage];
-      setMessages(updatedMessages);
+      // 将新消息添加到当前消息列表，通过状态更新UI
+      setMessages([...currentMessages, userMessage]);
       
-      // 强制滚动到底部，不受用户滚动状态影响
-      if (messageListRef.current) {
-        messageListRef.current.resetUserScrollState();
-      }
-      
-      // 如果是第一条消息，自动更新对话标题
-      if (messages.length === 0 && (!currentChatTitle || currentChatTitle === '新对话')) {
-        const newTitle = generateChatTitle(messageContent);
-        setCurrentChatTitle(newTitle);
-        
-        // 更新存储中的标题
-        if (currentChatId) {
-          const chats = await getStorage('chats') || {};
-          if (chats[currentChatId]) {
-            chats[currentChatId].title = newTitle;
-            await saveChat(chats);
-          }
-        }
-      }
-      
+      // 设置加载状态
       setIsLoading(true);
       setIsGenerating(true);
       
-      // 创建流式响应的初始消息
+      // 设置流式消息的初始状态
       setStreamingMessage({
         role: 'assistant',
         content: '',
-        model: currentModel // 使用当前引用的模型值
+        model: currentModel
       });
       
       try {
         // 创建AbortController用于中断请求
         abortControllerRef.current = new AbortController();
         
-        // 使用回调函数实现流式输出
+        // 使用回调函数更新流式消息
         const onChunkReceived = (chunk) => {
           setStreamingMessage(prev => {
             if (!prev) return {
@@ -705,92 +942,63 @@ const ChatPanel = () => {
           });
         };
         
+        // 发送消息并获取助手响应
         const assistantMessage = await sendMessage(
-          fullContent, 
-          currentModel, // 使用当前引用的模型值
-          messages, 
-          onChunkReceived, 
+          messageContentForAPI,
+          currentModel,
+          currentMessages,
+          onChunkReceived,
           abortControllerRef.current.signal
         );
         
-        // 为AI消息添加模型信息
+        // 添加模型信息
         assistantMessage.model = currentModel;
         
-        // 完成后清除流式消息，并添加完整回复
+        // 清除流式消息状态
         setStreamingMessage(null);
         
-        const updatedMessages = [...messages, userMessage, assistantMessage];
+        // 更新消息列表
+        const updatedMessages = [...currentMessages, userMessage, assistantMessage];
         setMessages(updatedMessages);
         
-        // 更新存储
+        // 保存到存储
         if (currentChatId) {
           const chats = await getStorage('chats') || {};
           if (chats[currentChatId]) {
+            // 更新标题（如果是新对话）
+            if (chats[currentChatId].messages.length === 0 && chats[currentChatId].title === '新对话') {
+              const newTitle = generateChatTitle(typeof messageContentForAPI === 'string' ? messageContentForAPI : '图片问答');
+              chats[currentChatId].title = newTitle;
+              setCurrentChatTitle(newTitle);
+            }
+            
+            // 更新消息和模型
             chats[currentChatId].messages = updatedMessages;
             chats[currentChatId].model = currentModel;
             await saveChat(chats);
-          } else {
-            // 处理对话不存在的情况
-            chats[currentChatId] = {
-              id: currentChatId,
-              title: generateChatTitle(messageContent),
-              model: currentModel,
-              createdAt: new Date().toISOString(),
-              messages: updatedMessages
-            };
-            await saveChat(chats);
           }
-        } else {
-          console.error('发送消息完成但没有有效的对话ID');
         }
       } catch (error) {
-        // 如果是主动中断请求，不显示错误消息
-        if (error.name === 'AbortError') {
-          console.log('请求被用户取消');
-          
-          // 如果有部分生成的内容，将其保存为完整回复
-          if (streamingMessage && streamingMessage.content) {
-            const assistantMessage = {
-              role: 'assistant',
-              content: streamingMessage.content + '\n\n**[用户已中止生成]**',
-              model: selectedModel // 添加模型信息
-            };
-            
-            const updatedMessages = [...messages, userMessage, assistantMessage];
-            setMessages(updatedMessages);
-            
-            // 更新存储
-            if (currentChatId) {
-              const chats = await getStorage('chats') || {};
-              if (chats[currentChatId]) {
-                chats[currentChatId].messages = updatedMessages;
-                await saveChat(chats);
-              }
-            }
-          }
-        } else {
-          console.error('发送消息失败:', error);
-          // 显示错误消息
-          setStreamingMessage(null);
-          setMessages(prev => [
-            ...prev, 
-            { role: 'assistant', content: `发送消息失败: ${error.message}` }
-          ]);
-        }
+        console.error('API请求失败:', error);
+        
+        // 更新消息列表，添加错误信息
+        setMessages([...currentMessages, userMessage, {
+          role: 'assistant',
+          content: `调用API失败: ${error.message}`
+        }]);
       } finally {
+        // 重置状态
         setIsLoading(false);
         setIsGenerating(false);
         setStreamingMessage(null);
         abortControllerRef.current = null;
-        console.log('消息处理完成，状态已重置');
       }
-    } catch (outerError) {
-      console.error('handleSend外层错误:', outerError);
+    } catch (error) {
+      console.error('发送消息处理失败:', error);
       setIsLoading(false);
       setIsGenerating(false);
       setStreamingMessage(null);
       if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
         abortControllerRef.current = null;
       }
     }
@@ -1271,7 +1479,10 @@ const ChatPanel = () => {
         )}
       </div>
       
-      <div className="chat-input-container">
+      <div className="chat-input-container"
+           onDragOver={handleDragOver}
+           onDrop={handleDrop}
+           ref={dropAreaRef}>
         {/* API错误提示 */}
         {apiError && (
           <div className="api-error-message">
@@ -1307,13 +1518,43 @@ const ChatPanel = () => {
           </div>
         )}
         
+        {/* 上传的图片预览区域 */}
+        {uploadedImages.length > 0 && (
+          <div className="uploaded-images-container">
+            <div className="uploaded-images-header">
+              <span>已上传图片 ({uploadedImages.length})</span>
+              <button 
+                className="clear-all-images-btn" 
+                onClick={() => setUploadedImages([])}
+              >
+                清空
+              </button>
+            </div>
+            <div className="uploaded-images-list">
+              {uploadedImages.map((image) => (
+                <div className="uploaded-image-item" key={image.id}>
+                  <div className="uploaded-image-preview">
+                    <img src={image.base64} alt={image.name} />
+                  </div>
+                  <button 
+                    className="delete-image-btn"
+                    onClick={() => handleImageDelete(image.id)}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        
         <div className="input-row">
           <textarea
             className="chat-input"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onInput={handleTextareaInput}
-            placeholder={quotes.length > 0 ? "添加问题或直接发送引用内容..." : "输入消息..."}
+            placeholder={uploadedImages.length > 0 ? "输入问题或直接发送图片..." : (quotes.length > 0 ? "添加问题或直接发送引用内容..." : "输入消息或拖拽图片到此处上传...")}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
@@ -1324,6 +1565,28 @@ const ChatPanel = () => {
               }
             }}
           />
+          
+          {/* 图片上传按钮 */}
+          <button 
+            className="upload-btn"
+            onClick={() => fileInputRef.current?.click()}
+            title="上传图片"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+              <circle cx="8.5" cy="8.5" r="1.5"/>
+              <polyline points="21 15 16 10 5 21"/>
+            </svg>
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              style={{ display: 'none' }}
+              ref={fileInputRef}
+              onChange={handleImageUpload}
+            />
+          </button>
+          
           <button 
             className={`${isGenerating ? 'stop-btn' : 'send-btn'}`}
             onClick={isGenerating ? handleStopGeneration : () => {

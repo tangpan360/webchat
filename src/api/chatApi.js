@@ -44,7 +44,7 @@ const processMessages = (messages, settings) => {
   // 压缩过长的消息
   if (compressionThreshold > 0) {
     processedMessages = processedMessages.map(msg => {
-      if (msg.content && msg.content.length > compressionThreshold) {
+      if (typeof msg.content === 'string' && msg.content.length > compressionThreshold) {
         return {
           ...msg,
           content: compressContent(msg.content, compressionThreshold)
@@ -59,7 +59,7 @@ const processMessages = (messages, settings) => {
 
 /**
  * 发送消息到API并获取响应
- * @param {string} content - 用户消息内容
+ * @param {string|Array} content - 用户消息内容，可以是文本或包含文本和图片的数组
  * @param {string} modelId - 使用的模型ID
  * @param {Array} previousMessages - 之前的消息历史
  * @param {Function} onChunkReceived - 接收到内容块时的回调函数
@@ -85,16 +85,37 @@ export const sendMessage = async (content, modelId, previousMessages, onChunkRec
   const processedHistory = processMessages(previousMessages, settings);
   
   // 映射为API格式
-  const history = processedHistory.map(msg => ({
-    role: msg.role,
-    content: msg.content
-  }));
+  const history = processedHistory.map(msg => {
+    if (typeof msg.content === 'string') {
+      return {
+        role: msg.role,
+        content: msg.content
+      };
+    } else if (Array.isArray(msg.content)) {
+      return {
+        role: msg.role,
+        content: msg.content
+      };
+    }
+    return {
+      role: msg.role,
+      content: msg.content
+    };
+  });
 
   // 创建请求体
-  const messages = [
-    ...history,
-    { role: 'user', content }
-  ];
+  let userMessage;
+  
+  // 判断content是字符串还是包含图片的数组
+  if (typeof content === 'string') {
+    userMessage = { role: 'user', content };
+  } else if (Array.isArray(content)) {
+    userMessage = { role: 'user', content };
+  } else {
+    throw new Error('不支持的消息格式');
+  }
+  
+  const messages = [...history, userMessage];
 
   // 发送请求
   try {
@@ -159,4 +180,18 @@ export const sendMessage = async (content, modelId, previousMessages, onChunkRec
     console.error('API请求失败:', error);
     throw error;
   }
+};
+
+/**
+ * 将图片文件转换为base64编码
+ * @param {File} file - 图片文件对象
+ * @returns {Promise<string>} - 包含base64编码的Promise
+ */
+export const fileToBase64 = (file) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = error => reject(error);
+  });
 }; 

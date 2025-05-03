@@ -5,7 +5,8 @@ const ModelSelector = ({ selectedModel, setSelectedModel }) => {
   const [models, setModels] = useState([
     { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo' },
     { id: 'gpt-4', name: 'GPT-4' },
-    { id: 'deepseek-v3', name: 'DeepSeek-v3' }
+    { id: 'deepseek-v3', name: 'DeepSeek-v3' },
+    { id: 'gpt-4o', name: 'GPT-4o' }
   ]);
   
   const [isOpen, setIsOpen] = useState(false);
